@@ -4,6 +4,14 @@ This document is the public usage contract for humans, automation, and coding/op
 
 Windows Package Foundry is the public execution and distribution plane. It exposes generic build/package/trust machinery and generated public-safe distribution metadata. Private package policy, private validation evidence, and product-specific evaluator knowledge remain authoritative in the private Foundry.
 
+## Client UX and DX contract
+
+The primary client experience should be the package manager's normal interface after at most one simple source/bootstrap step. Users should not need to understand Foundry internals, manually select hashes, edit generated manifests, or clone repositories merely to perform an ordinary install/update/remove operation once a native source interface exists.
+
+Humans, automation, and agents share one generated public package model. That model should drive the web UI, machine-readable catalog, package-manager projections, and any thin protocol adapters. Do not create independent hand-maintained representations for each audience.
+
+See `docs/client-interface-contract.md` for the normative human/automation/agent interface requirements, GitHub Pages role, native package-manager UX target, and REST/feed adapter boundary.
+
 ## External registry policy
 
 Official/community registries such as Microsoft WinGet Community, Chocolatey Community, Scoop community buckets, and PortableApps.com are optional downstream mirrors or convenience channels.
@@ -36,7 +44,7 @@ A successful provenance check establishes origin/process evidence, not software 
 
 ### Use generated package metadata
 
-When `distribution/` contains a package projection, treat it as generated and non-authoritative. Follow the package-specific README/metadata in that projection for local/private installation or repository registration.
+When `distribution/` contains a package projection, treat it as generated and non-authoritative. Prefer the native package-manager source/interface documented for that projection. Local-manifest or local-folder flows are acceptable as MVP bring-up fallbacks but are not the target UX when a practical native source adapter exists.
 
 Do not assume an external community registry contains the newest approved Foundry package. The product release and generated Foundry projection are the primary public references.
 
@@ -61,6 +69,7 @@ Required attestation permissions and the complete action contract are documented
 
 Automation invariants:
 
+- consume structured generated public data rather than scraping the human UI;
 - use immutable source/release identities;
 - pin third-party Actions and cross-repository Foundry references to full commit SHAs;
 - use minimal token permissions;
@@ -78,9 +87,12 @@ Before changing this repository, agents must read:
 1. `AGENTS.md`;
 2. `README.md`;
 3. this file;
-4. `docs/trust-model.md`;
-5. `.foundry/repository-role.json`;
-6. the governing issue or pull request.
+4. `docs/client-interface-contract.md`;
+5. `docs/trust-model.md`;
+6. `.foundry/repository-role.json`;
+7. the governing issue or pull request.
+
+Agents should preserve native package-manager consumption as the primary UX and use one generated public package model for human, automation, and package-manager interfaces.
 
 Agents may modify generic public infrastructure through a reviewed branch/PR. They must not independently modify generated distribution records or import private validation material.
 
@@ -88,6 +100,6 @@ If a requested change requires private eligibility decisions, private evaluator 
 
 ## Current capability boundary
 
-The operational public capability currently available is the reusable release-trust envelope. Generated package-manager distribution is being added through the Foundry MVP vertical slice.
+The operational public capability currently available is the reusable release-trust envelope. Generated package-manager distribution and client interfaces are being added through the Foundry MVP vertical slice.
 
 Until a generated projection exists for a product, use the product's immutable public release and trust evidence directly rather than inventing package metadata or depending on an external community registry submission.
