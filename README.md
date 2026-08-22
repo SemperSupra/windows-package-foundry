@@ -1,67 +1,153 @@
 # Windows Package Foundry
 
-Public Windows build, packaging, and distribution infrastructure for applications that are safe to build in public CI.
+Public Windows **execution and distribution plane** for SemperSupra applications and eligible external packages.
 
-This repository is intentionally **not** the canonical development/source repository for AU Companion or other private-development applications. Application development may remain private; public deploy repositories receive only release-safe snapshots through an explicit airlock/promotion step.
+This repository is intentionally observable. Users should be able to inspect the generic build/package machinery used for public releases and use that visibility as part of their own trust decision.
 
-## Intended role
+It is **not** the authoritative repository for private package policy, private validation evidence, or product-specific evaluator knowledge.
 
-Windows Package Foundry may provide reusable, versioned infrastructure for multiple Windows applications:
+## Repository role
 
-- GitHub Actions reusable workflows for restore/test/publish/package;
-- self-contained .NET build templates;
-- portable ZIP packaging;
-- reversible per-user installer templates;
-- checksum/provenance generation;
-- SBOM generation;
-- optional signing hooks that fail closed when signing material is absent;
-- future WinGet manifest generation/submission helpers;
-- a public catalog/index of Windows releases and their canonical application repositories;
-- reproducible release verification helpers.
+This public repository contains two distinct zones.
 
-Application-specific public source should normally live in that application's own public deploy repository. For AU Companion that repository is intended to be `SemperSupra/au-companion`.
+### 1. Generic public execution infrastructure — hand-authored and reviewed
 
-## Distribution model
+This zone may contain:
 
-Preferred MVP pattern:
+- reusable GitHub Actions workflows;
+- generic Windows build/package templates;
+- portable ZIP and installer helpers;
+- checksum, SBOM, provenance, and artifact-attestation helpers;
+- ordinary public unit/integration/smoke-test plumbing;
+- public release-verification helpers;
+- public documentation.
+
+This code is public by design so users and contributors can inspect how public release artifacts are produced.
+
+### 2. Public package/distribution metadata — generated and non-authoritative
+
+The distribution zone may contain generated public-safe metadata such as:
+
+- WinGet-style manifests;
+- Scoop metadata;
+- Chocolatey metadata;
+- public package catalog/index data;
+- public provenance/role markers.
+
+Generated distribution metadata is projected from the private authoritative Foundry state and must not be independently hand-authored here.
+
+The preferred future layout is conceptually:
 
 ```text
-private canonical dev repo
-        |
-        | deterministic release airlock
-        v
-public app deploy/source repo
-        |
-        | version-pinned reusable workflow/templates
-        v
-Windows Package Foundry infrastructure
-        |
-        v
-app repo GitHub Release: source + portable ZIP + installer + checksums
+windows-package-foundry/
+|
+|-- .github/workflows/        public generic infrastructure
+|-- tooling/                  public generic infrastructure
+|-- templates/                public generic infrastructure
+|-- docs/                     public documentation
+`-- distribution/             generated, non-authoritative
+    |-- winget/
+    |-- scoop/
+    |-- chocolatey/
+    `-- catalog/
 ```
 
-The app repository remains the canonical release location initially. The foundry may later add a centralized release catalog/index when that provides enough value to justify the extra automation.
+Exact paths may evolve; the semantic boundary must not.
 
-Avoid cross-repository write credentials for MVP. Reusable workflows/templates are preferable to having the foundry push releases into another repository.
+## Generator–validator boundary
 
-## Public/private boundary
+The project follows a generator–validator separation:
 
-This repository may contain only generic/public build and distribution material.
+- the **public builder** knows generic build/package mechanics;
+- the **private validation plane** may apply deeper product-specific compatibility, adversarial, conformance, provenance, or evaluation knowledge before a release is approved.
 
-It must never contain:
-- student credentials, MFA data, access/refresh tokens, cookies, or session material;
-- private student mailbox content, grades, schedules, financial records, or exported datasets;
-- authenticated captures/logs containing private student data;
-- APKs, decompiled production application trees, or proprietary binary assets;
-- private AU/SPARK provider packs, reverse-engineering evidence, undocumented endpoint inventories, auth-exchange recipes, or other private interoperability value;
-- credentials that allow a public workflow to read a private development repository merely to obtain source.
+Public build infrastructure must not require private evaluator corpora, private reverse-engineering evidence, private golden-answer sets, private credentials, private repository access, or other value-bearing private material.
 
-## CI policy
+Where a private validation result is surfaced publicly, the preferred pattern is to publish a sanitized verdict bound to an immutable artifact/release identity — not the private examination that produced the verdict.
 
-Public GitHub Actions may be used for build/test/package work on release-safe public snapshots so private repositories do not consume their included private-repository Actions minutes.
+## What public build transparency proves — and what it does not
 
-Public CI must be fully synthetic/non-secret by default. Applications that require private runtime configuration should load it only after installation on the authorized end-user machine, never during the public build.
+The goal is to let a skeptical user inspect or verify, as implemented for a product:
 
-## Reproducibility principle
+- the exact public source commit/tag;
+- the exact public workflow revision;
+- build dependencies/toolchain inputs;
+- ordinary public test results;
+- build logs;
+- release hashes;
+- SBOM/provenance;
+- artifact attestations.
 
-A public release binary should correspond to the public source snapshot used to build it. Do not publish binaries that embed hidden private source or private provider knowledge absent from the accompanying source. Private runtime/provider configuration should be delivered as a separately versioned private artifact if needed.
+This supports **provenance transparency**: users can see how the shipped artifact relates to public source and public build machinery.
+
+It does **not** by itself prove that software is correct, secure, bug-free, or equivalent to the private validation process.
+
+See `docs/trust-model.md`.
+
+## Private-to-public airlock
+
+Public source/release material must cross an explicit constructive allowlist boundary.
+
+The intended pattern is:
+
+```text
+private development state
+        |
+        | explicitly select already-approved public-safe material
+        v
+public source/release repository
+        |
+        | public caller workflow
+        v
+public Foundry build/package machinery
+        |
+        v
+public candidate release
+        |
+        | separate private eligibility/deep-validation gate
+        v
+approved public distribution metadata
+```
+
+Do not publish by copying a private repository tree and then deleting known-private paths.
+
+Public workflows must not receive credentials that allow them to read private Foundry repositories, private product repositories, private releases, or private artifacts.
+
+## GitHub Actions and build observability
+
+Public product repositories are intended to call reusable workflows hosted here for generic Windows build/package work.
+
+Under GitHub's current billing model, reusable-workflow execution is billed to the **caller**. Having the caller itself be public preserves the standard public-repository hosted-runner cost advantage while also making the build path inspectable.
+
+The billing benefit is an optimization, not a security invariant. The build process should remain understandable and locally reproducible if GitHub pricing or product policy changes.
+
+For release workflows, prefer:
+
+- immutable public source/tag identity;
+- third-party Actions pinned to full commit SHAs;
+- cross-repository reusable workflows pinned to immutable commit SHAs;
+- minimal token permissions;
+- secret-free, non-privileged execution for untrusted pull requests;
+- locked dependencies/toolchains where practical;
+- hashes, SBOMs, provenance, and artifact attestations where low-friction.
+
+## Reproducibility target
+
+The practical MVP target is:
+
+**rebuildable + provenance-verifiable + dependency-pinned**
+
+Bit-for-bit Windows reproducibility is useful where cheap, but it is not required merely for appearance's sake. Signing, independent second builders, full SLSA certification, custom transparency services, and complex cryptographic proofs are added only when their incremental assurance justifies the operational complexity.
+
+## Source and release ownership
+
+Application-specific source should normally live in that application's own public source/release repository. The application repository remains the canonical source/release location for its public binaries and source snapshots.
+
+Windows Package Foundry provides reusable public build/package infrastructure and public-safe distribution metadata. It does not become a source-code mirror for every product.
+
+## Machine and agent contracts
+
+- `.foundry/repository-role.json` — machine-readable public repository role and zoning;
+- `AGENTS.md` — contributor/agent safety and authorship rules;
+- `.github/copilot-instructions.md` — coding-agent bootstrap rules;
+- `docs/trust-model.md` — user-facing trust and provenance model.
