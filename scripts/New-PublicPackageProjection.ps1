@@ -25,6 +25,13 @@ function Assert-Sha256 {
     }
 }
 
+function Assert-GitSha {
+    param([string] $Value, [string] $Name)
+    if ($Value -notmatch '^[0-9a-fA-F]{40}$') {
+        throw "$Name must be a 40-character Git commit SHA."
+    }
+}
+
 function Quote-Yaml {
     param([string] $Value)
     return "'" + $Value.Replace("'", "''") + "'"
@@ -55,23 +62,31 @@ foreach ($pair in @(
     @($model.package.identity.description, 'package.identity.description'),
     @($model.package.identity.homepage, 'package.identity.homepage'),
     @($model.package.identity.license, 'package.identity.license'),
+    @($model.package.identity.licenseUrl, 'package.identity.licenseUrl'),
     @($model.package.release.version, 'package.release.version'),
     @($model.package.release.tag, 'package.release.tag'),
     @($model.package.release.repository, 'package.release.repository'),
     @($model.package.release.sourceSha, 'package.release.sourceSha'),
+    @($model.package.release.sourceUrl, 'package.release.sourceUrl'),
     @($model.package.release.releaseUrl, 'package.release.releaseUrl'),
     @($model.package.artifacts.installer.url, 'package.artifacts.installer.url'),
     @($model.package.artifacts.installer.sha256, 'package.artifacts.installer.sha256'),
+    @($model.package.artifacts.installer.architecture, 'package.artifacts.installer.architecture'),
+    @($model.package.artifacts.installer.installerType, 'package.artifacts.installer.installerType'),
+    @($model.package.artifacts.installer.scope, 'package.artifacts.installer.scope'),
+    @($model.package.artifacts.installer.silentArgs, 'package.artifacts.installer.silentArgs'),
     @($model.package.artifacts.portable.url, 'package.artifacts.portable.url'),
     @($model.package.artifacts.portable.sha256, 'package.artifacts.portable.sha256'),
     @($model.package.clients.scoop.id, 'package.clients.scoop.id'),
     @($model.package.clients.winget.id, 'package.clients.winget.id'),
-    @($model.package.clients.chocolatey.id, 'package.clients.chocolatey.id')
+    @($model.package.clients.chocolatey.id, 'package.clients.chocolatey.id'),
+    @($model.package.clients.chocolatey.packageSourceUrl, 'package.clients.chocolatey.packageSourceUrl'),
+    @($model.package.clients.chocolatey.tags, 'package.clients.chocolatey.tags')
 )) {
     Require-Value -Value $pair[0] -Name $pair[1]
 }
 
-Assert-Sha256 -Value ([string]$model.package.release.sourceSha) -Name 'package.release.sourceSha'
+Assert-GitSha -Value ([string]$model.package.release.sourceSha) -Name 'package.release.sourceSha'
 Assert-Sha256 -Value ([string]$model.package.artifacts.installer.sha256) -Name 'package.artifacts.installer.sha256'
 Assert-Sha256 -Value ([string]$model.package.artifacts.portable.sha256) -Name 'package.artifacts.portable.sha256'
 
@@ -130,6 +145,9 @@ Set-Content -LiteralPath (Join-Path $OutputRoot 'catalog/v1/catalog.json') -Valu
 
 # Scoop bucket: prefer the portable ZIP to avoid global installer side effects.
 $bin = @($model.package.clients.scoop.bin)
+if ($bin.Count -eq 0) {
+    throw 'Scoop projection requires at least one bin entry.'
+}
 $scoop = [ordered]@{
     version = $version
     description = [string]$model.package.identity.description
