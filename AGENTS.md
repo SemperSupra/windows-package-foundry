@@ -6,9 +6,10 @@ Before changing anything, read:
 
 1. `README.md`;
 2. `docs/usage.md`;
-3. `docs/trust-model.md`;
-4. `.foundry/repository-role.json`;
-5. the governing issue or pull request.
+3. `docs/client-interface-contract.md`;
+4. `docs/trust-model.md`;
+5. `.foundry/repository-role.json`;
+6. the governing issue or pull request.
 
 ## Repository zones
 
@@ -38,6 +39,14 @@ Generated and non-authoritative:
 Do not independently hand-author generated package records or eligibility decisions here.
 
 External community registries are optional downstream mirrors, not authoritative Foundry state and not prerequisites for release usability. Do not restore direct external-registry promotion to a product release workflow merely because a community queue is slow or unresponsive.
+
+## Client interface invariant
+
+Optimize the public Foundry toward native package-manager consumption after at most one simple source/bootstrap step. Humans should not need to understand Foundry internals for ordinary install/update/remove operations.
+
+Use one generated public package model to drive human UI, machine-readable catalog data, package-manager metadata, and thin protocol adapters. Do not create independently maintained package state per audience.
+
+A GitHub Pages SPA may present generated public state, but it is static hosting and is not itself a WinGet REST source or Chocolatey/NuGet feed. Where native package-manager protocols require request processing, use a thin public-safe protocol adapter that consumes only sanitized public projection data.
 
 ## Generator-validator boundary
 
