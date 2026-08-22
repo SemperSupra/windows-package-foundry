@@ -1,12 +1,15 @@
 # Coding Agent Instructions
 
-Read `AGENTS.md`, `README.md`, `docs/usage.md`, `docs/trust-model.md`, and `.foundry/repository-role.json` before proposing changes.
+Read `AGENTS.md`, `README.md`, `docs/usage.md`, `docs/client-interface-contract.md`, `docs/trust-model.md`, and `.foundry/repository-role.json` before proposing changes.
 
 Key invariants:
 
 - this repository is a public execution and distribution plane, not the private policy/validation authority;
 - generic public build/package infrastructure may be hand-authored and reviewed;
 - generated package/distribution metadata remains non-authoritative and must not be independently authored;
+- native package-manager consumption is the primary UX target after at most one simple source/bootstrap step;
+- one generated public package model should drive human UI, structured automation data, package-manager metadata, and protocol adapters;
+- a GitHub Pages SPA is a static presentation/data surface, not a server-side WinGet REST or Chocolatey/NuGet feed;
 - external community registries are optional downstream mirrors, not authoritative Foundry state or release prerequisites;
 - public builder logic must remain generic and must not absorb private evaluator/conformance/domain knowledge;
 - public workflows must not receive credentials capable of reading private product or Foundry repositories, releases, issues, or artifacts;
