@@ -5,9 +5,10 @@ This repository is the **public execution and distribution plane** for Windows P
 Before changing anything, read:
 
 1. `README.md`;
-2. `docs/trust-model.md`;
-3. `.foundry/repository-role.json`;
-4. the governing issue or pull request.
+2. `docs/usage.md`;
+3. `docs/trust-model.md`;
+4. `.foundry/repository-role.json`;
+5. the governing issue or pull request.
 
 ## Repository zones
 
@@ -35,6 +36,8 @@ Generated and non-authoritative:
 - generated provenance/role markers.
 
 Do not independently hand-author generated package records or eligibility decisions here.
+
+External community registries are optional downstream mirrors, not authoritative Foundry state and not prerequisites for release usability. Do not restore direct external-registry promotion to a product release workflow merely because a community queue is slow or unresponsive.
 
 ## Generator-validator boundary
 
