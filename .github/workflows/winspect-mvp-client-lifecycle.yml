@@ -48,7 +48,8 @@ jobs:
             -PackageName 'WinInspect' `
             -License 'PolyForm-Noncommercial-1.0.0' `
             -Description 'Window inspection and automation tool for Windows and Wine.' `
-            -EvidencePath '${{ github.workspace }}\wininspect-v0.4.2-client-lifecycle.json'
+            -EvidencePath '${{ github.workspace }}\wininspect-v0.4.2-client-lifecycle.json' `
+            -FailureEvidencePath '${{ github.workspace }}\wininspect-v0.4.2-live-timeout.json'
 
       - name: Capture lifecycle failure diagnostics
         if: failure()
@@ -107,6 +108,8 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: wininspect-v0.4.2-client-lifecycle-failure
-          path: wininspect-v0.4.2-failure-diagnostics.json
+          path: |
+            wininspect-v0.4.2-failure-diagnostics.json
+            wininspect-v0.4.2-live-timeout.json
           if-no-files-found: error
           retention-days: 30
