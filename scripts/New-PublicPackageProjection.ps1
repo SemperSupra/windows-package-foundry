@@ -120,7 +120,6 @@ foreach ($relative in $paths) {
     New-Item -ItemType Directory -Force -Path (Join-Path $OutputRoot $relative) | Out-Null
 }
 
-# Canonical machine-readable package view.
 $modelJson = $model | ConvertTo-Json -Depth 20
 Set-Content -LiteralPath (Join-Path $OutputRoot "catalog/v1/packages/$slug.json") -Value $modelJson -Encoding utf8NoBOM
 
@@ -143,7 +142,6 @@ $catalog = [ordered]@{
 }
 Set-Content -LiteralPath (Join-Path $OutputRoot 'catalog/v1/catalog.json') -Value ($catalog | ConvertTo-Json -Depth 10) -Encoding utf8NoBOM
 
-# Scoop bucket: prefer the portable ZIP to avoid global installer side effects.
 $bin = @($model.package.clients.scoop.bin)
 if ($bin.Count -eq 0) {
     throw 'Scoop projection requires at least one bin entry.'
@@ -163,9 +161,10 @@ $scoop = [ordered]@{
 }
 Set-Content -LiteralPath (Join-Path $OutputRoot "bucket/$scoopId.json") -Value ($scoop | ConvertTo-Json -Depth 10) -Encoding utf8NoBOM
 
-# WinGet local singleton manifest. Keep source explicit when/if a remote source exists later.
 $manifestVersion = if ($model.package.clients.winget.manifestVersion) { [string]$model.package.clients.winget.manifestVersion } else { '1.12.0' }
 $winget = @(
+    "# yaml-language-server: `$schema=https://aka.ms/winget-manifest.singleton.$manifestVersion.schema.json",
+    '',
     "PackageIdentifier: $(Quote-Yaml ([string]$wingetId))",
     "PackageVersion: $(Quote-Yaml $version)",
     "PackageLocale: 'en-US'",
@@ -187,7 +186,6 @@ $winget = @(
 ) -join "`n"
 Set-Content -LiteralPath (Join-Path $OutputRoot "distribution/winget/$wingetId/$version/$wingetId.yaml") -Value ($winget + "`n") -Encoding utf8NoBOM
 
-# Chocolatey package source. choco pack produces the local-feed .nupkg.
 $iconUrl = if ($model.package.clients.chocolatey.iconUrl) { [string]$model.package.clients.chocolatey.iconUrl } else { '' }
 $nuspecLines = @(
     '<?xml version="1.0" encoding="utf-8"?>',
@@ -229,7 +227,6 @@ Install-ChocolateyPackage @packageArgs
 "@
 Set-Content -LiteralPath (Join-Path $OutputRoot "chocolatey/packages/$chocoId/tools/chocolateyInstall.ps1") -Value $installScript -Encoding utf8NoBOM
 
-# Static HTML is a rendering of the same model, not authority.
 $name = Escape-Html ([string]$model.package.identity.name)
 $description = Escape-Html ([string]$model.package.identity.description)
 $sourceSha = Escape-Html ([string]$model.package.release.sourceSha)
