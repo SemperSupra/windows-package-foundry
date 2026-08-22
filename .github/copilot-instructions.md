@@ -1,12 +1,13 @@
 # Coding Agent Instructions
 
-Read `AGENTS.md`, `README.md`, `docs/trust-model.md`, and `.foundry/repository-role.json` before proposing changes.
+Read `AGENTS.md`, `README.md`, `docs/usage.md`, `docs/trust-model.md`, and `.foundry/repository-role.json` before proposing changes.
 
 Key invariants:
 
 - this repository is a public execution and distribution plane, not the private policy/validation authority;
 - generic public build/package infrastructure may be hand-authored and reviewed;
 - generated package/distribution metadata remains non-authoritative and must not be independently authored;
+- external community registries are optional downstream mirrors, not authoritative Foundry state or release prerequisites;
 - public builder logic must remain generic and must not absorb private evaluator/conformance/domain knowledge;
 - public workflows must not receive credentials capable of reading private product or Foundry repositories, releases, issues, or artifacts;
 - public provenance transparency is not proof of correctness/security;

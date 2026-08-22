@@ -8,6 +8,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $required = @(
+    'README.md',
+    'AGENTS.md',
+    '.github/copilot-instructions.md',
     'actions/release-trust/action.yml',
     'actions/release-trust/scripts/New-FoundryTrustBundle.ps1',
     'actions/release-trust/scripts/Complete-FoundryTrustBundle.ps1',
@@ -15,7 +18,9 @@ $required = @(
     'scripts/Test-ReleaseTrustBundle.ps1',
     '.github/workflows/release-trust-selftest.yml',
     '.foundry/repository-role.json',
-    'docs/trust-model.md'
+    'docs/usage.md',
+    'docs/trust-model.md',
+    'docs/release-trust.md'
 )
 
 foreach ($relative in $required) {
@@ -23,6 +28,27 @@ foreach ($relative in $required) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         throw "Missing required public Foundry artifact: $relative"
     }
+}
+
+$usageText = Get-Content -LiteralPath (Join-Path $RepositoryRoot 'docs/usage.md') -Raw
+foreach ($requiredUsageToken in @(
+    '## Humans',
+    '## Product automation',
+    '## Agents',
+    'External registry policy',
+    'optional downstream mirrors',
+    'must not become a release dependency',
+    'gh attestation verify',
+    '.foundry/repository-role.json'
+)) {
+    if (-not $usageText.Contains($requiredUsageToken, [StringComparison]::Ordinal)) {
+        throw "Public usage contract lost required marker: $requiredUsageToken"
+    }
+}
+
+$agentsText = Get-Content -LiteralPath (Join-Path $RepositoryRoot 'AGENTS.md') -Raw
+if (-not $agentsText.Contains('docs/usage.md', [StringComparison]::Ordinal)) {
+    throw 'AGENTS.md must direct agents to the public usage contract.'
 }
 
 $scanPaths = @(
@@ -74,4 +100,4 @@ foreach ($token in $forbidden) {
     }
 }
 
-Write-Host 'Public Foundry structure and immutable action-pin validation passed.'
+Write-Host 'Public Foundry structure, usage contract, and immutable action-pin validation passed.'
