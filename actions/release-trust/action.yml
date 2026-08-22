@@ -1,0 +1,130 @@
+name: Foundry Release Trust
+description: Generate public release checksums, SBOM, build context, attestations, and an uploadable trust bundle.
+
+author: SemperSupra
+
+inputs:
+  artifact-root:
+    description: Directory containing finished public build/release output to inventory and hash.
+    required: true
+  subject-path:
+    description: Path/glob/list of exact release subjects to attest.
+    required: true
+  output-directory:
+    description: Empty directory outside artifact-root where the Foundry trust bundle will be written.
+    required: true
+  trust-artifact-name:
+    description: Workflow artifact name used for the generated trust bundle.
+    required: false
+    default: foundry-release-trust
+  attest:
+    description: Whether to create GitHub provenance and SBOM attestations. Caller must grant id-token, attestations, and artifact-metadata write permissions.
+    required: false
+    default: 'true'
+
+outputs:
+  trust-directory:
+    description: Directory containing the generated trust bundle.
+    value: ${{ inputs.output-directory }}
+  checksums-path:
+    description: Canonical SHA-256 manifest path.
+    value: ${{ inputs.output-directory }}/foundry-checksums.sha256
+  sbom-path:
+    description: SPDX JSON SBOM path.
+    value: ${{ inputs.output-directory }}/foundry-sbom.spdx.json
+  build-context-path:
+    description: Public build-context manifest path.
+    value: ${{ inputs.output-directory }}/foundry-build-context.json
+  trust-manifest-path:
+    description: Trust-bundle manifest path.
+    value: ${{ inputs.output-directory }}/foundry-trust-manifest.json
+
+runs:
+  using: composite
+  steps:
+    - name: Initialize checksums and public build context
+      shell: pwsh
+      env:
+        FOUNDRY_ARTIFACT_ROOT: ${{ inputs.artifact-root }}
+        FOUNDRY_OUTPUT_DIRECTORY: ${{ inputs.output-directory }}
+        FOUNDRY_SUBJECT_PATH: ${{ inputs.subject-path }}
+        FOUNDRY_ACTION_REPOSITORY: ${{ github.action_repository }}
+        FOUNDRY_ACTION_REF: ${{ github.action_ref }}
+        FOUNDRY_REPOSITORY: ${{ github.repository }}
+        FOUNDRY_SOURCE_SHA: ${{ github.sha }}
+        FOUNDRY_REF: ${{ github.ref }}
+        FOUNDRY_REF_NAME: ${{ github.ref_name }}
+        FOUNDRY_WORKFLOW: ${{ github.workflow }}
+        FOUNDRY_WORKFLOW_REF: ${{ github.workflow_ref }}
+        FOUNDRY_WORKFLOW_SHA: ${{ github.workflow_sha }}
+        FOUNDRY_RUN_ID: ${{ github.run_id }}
+        FOUNDRY_RUN_ATTEMPT: ${{ github.run_attempt }}
+        FOUNDRY_RUNNER_OS: ${{ runner.os }}
+      run: >-
+        & "$env:GITHUB_ACTION_PATH/scripts/New-FoundryTrustBundle.ps1"
+        -ArtifactRoot $env:FOUNDRY_ARTIFACT_ROOT
+        -OutputDirectory $env:FOUNDRY_OUTPUT_DIRECTORY
+        -SubjectPath $env:FOUNDRY_SUBJECT_PATH
+        -ActionRepository $env:FOUNDRY_ACTION_REPOSITORY
+        -ActionRef $env:FOUNDRY_ACTION_REF
+        -Repository $env:FOUNDRY_REPOSITORY
+        -SourceSha $env:FOUNDRY_SOURCE_SHA
+        -Ref $env:FOUNDRY_REF
+        -RefName $env:FOUNDRY_REF_NAME
+        -Workflow $env:FOUNDRY_WORKFLOW
+        -WorkflowRef $env:FOUNDRY_WORKFLOW_REF
+        -WorkflowSha $env:FOUNDRY_WORKFLOW_SHA
+        -RunId $env:FOUNDRY_RUN_ID
+        -RunAttempt $env:FOUNDRY_RUN_ATTEMPT
+        -RunnerOs $env:FOUNDRY_RUNNER_OS
+
+    - name: Generate SPDX JSON SBOM
+      uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+      with:
+        path: ${{ inputs.artifact-root }}
+        format: spdx-json
+        output-file: ${{ inputs.output-directory }}/foundry-sbom.spdx.json
+        artifact-name: foundry-sbom.spdx.json
+        upload-artifact: false
+        upload-release-assets: false
+
+    - name: Create provenance attestation
+      id: provenance
+      if: ${{ inputs.attest == 'true' }}
+      uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+      with:
+        subject-path: ${{ inputs.subject-path }}
+
+    - name: Create SBOM attestation
+      id: sbom-attestation
+      if: ${{ inputs.attest == 'true' }}
+      uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+      with:
+        subject-path: ${{ inputs.subject-path }}
+        sbom-path: ${{ inputs.output-directory }}/foundry-sbom.spdx.json
+
+    - name: Finalize trust bundle
+      shell: pwsh
+      env:
+        FOUNDRY_OUTPUT_DIRECTORY: ${{ inputs.output-directory }}
+        FOUNDRY_ATTEST: ${{ inputs.attest }}
+        FOUNDRY_PROVENANCE_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+        FOUNDRY_PROVENANCE_URL: ${{ steps.provenance.outputs.attestation-url }}
+        FOUNDRY_SBOM_BUNDLE: ${{ steps.sbom-attestation.outputs.bundle-path }}
+        FOUNDRY_SBOM_URL: ${{ steps.sbom-attestation.outputs.attestation-url }}
+      run: >-
+        & "$env:GITHUB_ACTION_PATH/scripts/Complete-FoundryTrustBundle.ps1"
+        -OutputDirectory $env:FOUNDRY_OUTPUT_DIRECTORY
+        -AttestationsRequested ($env:FOUNDRY_ATTEST -eq 'true')
+        -ProvenanceBundlePath $env:FOUNDRY_PROVENANCE_BUNDLE
+        -ProvenanceUrl $env:FOUNDRY_PROVENANCE_URL
+        -SbomBundlePath $env:FOUNDRY_SBOM_BUNDLE
+        -SbomUrl $env:FOUNDRY_SBOM_URL
+
+    - name: Upload Foundry trust bundle
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: ${{ inputs.trust-artifact-name }}
+        path: ${{ inputs.output-directory }}
+        if-no-files-found: error
+        retention-days: 30
