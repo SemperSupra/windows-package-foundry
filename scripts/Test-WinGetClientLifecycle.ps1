@@ -28,17 +28,59 @@ param(
     [string] $ExpectedInstallDirectory = (Join-Path $env:LOCALAPPDATA 'WinInspect'),
     [string] $UninstallKeyName = 'WinInspect',
     [string[]] $ExpectedExecutables = @('wininspectd.exe', 'wininspect.exe', 'wininspect-gui.exe'),
-    [string] $EvidencePath = (Join-Path $PWD 'client-lifecycle-evidence.json')
+    [string] $EvidencePath = (Join-Path $PWD 'client-lifecycle-evidence.json'),
+    [int] $OperationTimeoutSeconds = 240
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-function Assert-ExitCode {
-    param([System.Diagnostics.Process] $Process, [string] $Operation)
-    if ($Process.ExitCode -ne 0) {
-        throw "$Operation failed with exit code $($Process.ExitCode)."
+$work = Join-Path ([System.IO.Path]::GetTempPath()) ('foundry-winget-lifecycle-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Force -Path $work | Out-Null
+
+function Invoke-BoundedProcess {
+    param(
+        [Parameter(Mandatory)][string] $FilePath,
+        [Parameter(Mandatory)][string[]] $Arguments,
+        [Parameter(Mandatory)][string] $Operation,
+        [int] $TimeoutSeconds = $OperationTimeoutSeconds
+    )
+
+    $safeName = ($Operation -replace '[^A-Za-z0-9_.-]', '-')
+    $stdoutPath = Join-Path $work "$safeName.stdout.log"
+    $stderrPath = Join-Path $work "$safeName.stderr.log"
+
+    Write-Host "BEGIN $Operation"
+    Write-Host "Executable: $FilePath"
+    Write-Host "Arguments: $($Arguments -join ' ')"
+
+    $process = Start-Process -FilePath $FilePath `
+        -ArgumentList $Arguments `
+        -PassThru `
+        -RedirectStandardOutput $stdoutPath `
+        -RedirectStandardError $stderrPath
+
+    $completed = $process.WaitForExit($TimeoutSeconds * 1000)
+    if (-not $completed) {
+        Write-Host "$Operation exceeded ${TimeoutSeconds}s; terminating PID $($process.Id)."
+        try {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+        } finally {
+            if (Test-Path -LiteralPath $stdoutPath) { Get-Content -LiteralPath $stdoutPath | Write-Host }
+            if (Test-Path -LiteralPath $stderrPath) { Get-Content -LiteralPath $stderrPath | Write-Host }
+        }
+        throw "$Operation timed out after ${TimeoutSeconds}s."
+    }
+
+    # Ensure redirected streams are fully flushed before reading them.
+    $process.WaitForExit()
+    if (Test-Path -LiteralPath $stdoutPath) { Get-Content -LiteralPath $stdoutPath | Write-Host }
+    if (Test-Path -LiteralPath $stderrPath) { Get-Content -LiteralPath $stderrPath | Write-Host }
+
+    Write-Host "END $Operation (exit $($process.ExitCode))"
+    if ($process.ExitCode -ne 0) {
+        throw "$Operation failed with exit code $($process.ExitCode)."
     }
 }
 
@@ -70,6 +112,8 @@ function Assert-InstalledState {
             throw "${Stage}: unexpected machine-scope uninstall registration exists: $path"
         }
     }
+
+    Write-Host "$Stage state validation passed."
 }
 
 function Assert-UninstalledState {
@@ -86,8 +130,13 @@ function Assert-UninstalledState {
             throw "Uninstall left registration behind: $path"
         }
     }
+
+    Write-Host 'Uninstalled-state validation passed.'
 }
 
+if ($OperationTimeoutSeconds -lt 30 -or $OperationTimeoutSeconds -gt 600) {
+    throw 'OperationTimeoutSeconds must be between 30 and 600 seconds.'
+}
 if ($InstallerSha256 -notmatch '^[0-9a-fA-F]{64}$') {
     throw 'InstallerSha256 must be a 64-character SHA-256 value.'
 }
@@ -95,18 +144,18 @@ if ($InstallerUrl -notmatch '^https://github\.com/[^/]+/[^/]+/releases/download/
     throw 'InstallerUrl must be an immutable GitHub Release download URL.'
 }
 
-$work = Join-Path ([System.IO.Path]::GetTempPath()) ('foundry-winget-lifecycle-' + [guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory -Force -Path $work | Out-Null
-
 try {
+    Write-Host 'BEGIN download/hash verification'
     $installerPath = Join-Path $work 'installer.exe'
     Invoke-WebRequest -Uri $InstallerUrl -OutFile $installerPath -UseBasicParsing
     $actualHash = (Get-FileHash -LiteralPath $installerPath -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($actualHash -ne $InstallerSha256.ToLowerInvariant()) {
         throw "Downloaded installer SHA-256 mismatch. Expected $InstallerSha256, got $actualHash."
     }
+    Write-Host 'END download/hash verification (passed)'
 
     if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
+        Write-Host 'WinGet is absent; using Microsoft.WinGet.Client repair/bootstrap path.'
         Install-PackageProvider -Name NuGet -Force | Out-Null
         Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
         Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery -Scope AllUsers | Out-Null
@@ -117,10 +166,10 @@ try {
     $winget = Get-Command winget.exe -ErrorAction Stop
     $wingetVersion = (& $winget.Source --version | Select-Object -First 1)
     Write-Host "Using WinGet $wingetVersion at $($winget.Source)"
-    & $winget.Source settings --enable LocalManifestFiles
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to enable WinGet LocalManifestFiles; exit code $LASTEXITCODE."
-    }
+
+    Invoke-BoundedProcess -FilePath $winget.Source -Operation 'winget-settings-enable-local-manifests' -Arguments @(
+        'settings', '--enable', 'LocalManifestFiles'
+    ) -TimeoutSeconds 60
 
     # 1.10.0 is the MVP compatibility floor: all fields used here are available
     # in it, and newer clients remain able to consume the older frozen schema.
@@ -151,25 +200,22 @@ try {
     ) -join "`n"
     Set-Content -LiteralPath $manifestPath -Value ($manifest + "`n") -Encoding utf8NoBOM
 
-    & $winget.Source validate --manifest $manifestPath --disable-interactivity
-    if ($LASTEXITCODE -ne 0) {
-        throw "winget validate failed with exit code $LASTEXITCODE."
-    }
+    Invoke-BoundedProcess -FilePath $winget.Source -Operation 'winget-validate' -Arguments @(
+        'validate', '--manifest', $manifestPath, '--disable-interactivity'
+    ) -TimeoutSeconds 90
 
-    & $winget.Source install --manifest $manifestPath --accept-package-agreements --accept-source-agreements --disable-interactivity
-    if ($LASTEXITCODE -ne 0) {
-        throw "winget install --manifest failed with exit code $LASTEXITCODE."
-    }
+    Invoke-BoundedProcess -FilePath $winget.Source -Operation 'winget-install' -Arguments @(
+        'install', '--manifest', $manifestPath,
+        '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity'
+    )
     Assert-InstalledState -Stage 'WinGet install'
 
-    $repeat = Start-Process -FilePath $installerPath -ArgumentList '/S' -Wait -PassThru
-    Assert-ExitCode -Process $repeat -Operation 'Repeat silent install'
+    Invoke-BoundedProcess -FilePath $installerPath -Operation 'repeat-silent-install' -Arguments @('/S')
     Assert-InstalledState -Stage 'Repeat install'
 
-    & $winget.Source uninstall --name $PackageName --exact --disable-interactivity
-    if ($LASTEXITCODE -ne 0) {
-        throw "winget uninstall failed with exit code $LASTEXITCODE."
-    }
+    Invoke-BoundedProcess -FilePath $winget.Source -Operation 'winget-uninstall' -Arguments @(
+        'uninstall', '--name', $PackageName, '--exact', '--disable-interactivity'
+    )
     Assert-UninstalledState
 
     $evidence = [ordered]@{
