@@ -16,10 +16,15 @@ $required = @(
     'actions/release-trust/scripts/Complete-FoundryTrustBundle.ps1',
     'scripts/Test-PublicFoundry.ps1',
     'scripts/Test-ReleaseTrustBundle.ps1',
+    'scripts/New-PublicPackageProjection.ps1',
+    'scripts/Test-WinGetClientLifecycle.ps1',
     '.github/workflows/release-trust-selftest.yml',
+    '.github/workflows/winspect-mvp-client-lifecycle.yml',
     '.foundry/repository-role.json',
+    'tests/fixtures/public-package.json',
     'docs/usage.md',
     'docs/client-interface-contract.md',
+    'docs/client-interface-redteam.md',
     'docs/trust-model.md',
     'docs/release-trust.md'
 )
@@ -67,6 +72,20 @@ foreach ($requiredClientToken in @(
 )) {
     if (-not $clientText.Contains($requiredClientToken, [StringComparison]::Ordinal)) {
         throw "Public client interface contract lost required marker: $requiredClientToken"
+    }
+}
+
+$redTeamText = Get-Content -LiteralPath (Join-Path $RepositoryRoot 'docs/client-interface-redteam.md') -Raw
+foreach ($requiredRedTeamToken in @(
+    'Prefer static generation over a framework SPA',
+    'Reject the static-NuGet-v3 shortcut',
+    'Generate atomically',
+    'Fail closed on lifecycle/promotion state',
+    'WinGet REST source adapter',
+    'Chocolatey/NuGet HTTP feed adapter'
+)) {
+    if (-not $redTeamText.Contains($requiredRedTeamToken, [StringComparison]::Ordinal)) {
+        throw "Client-interface red-team record lost required marker: $requiredRedTeamToken"
     }
 }
 
@@ -133,4 +152,61 @@ foreach ($token in $forbidden) {
     }
 }
 
-Write-Host 'Public Foundry structure, usage/client contracts, and immutable action-pin validation passed.'
+# Prove one approved public model generates all client/human surfaces and that
+# promotion drift fails closed.
+$fixture = Join-Path $RepositoryRoot 'tests/fixtures/public-package.json'
+$generator = Join-Path $RepositoryRoot 'scripts/New-PublicPackageProjection.ps1'
+$tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('foundry-public-projection-' + [guid]::NewGuid().ToString('N'))
+try {
+    & $generator -InputPath $fixture -OutputRoot $tempRoot
+
+    foreach ($relative in @(
+        'catalog/v1/catalog.json',
+        'catalog/v1/packages/fixture-app.json',
+        'bucket/fixture-app.json',
+        'distribution/winget/Example.FixtureApp/1.2.3/Example.FixtureApp.yaml',
+        'chocolatey/packages/fixture-app/fixture-app.nuspec',
+        'chocolatey/packages/fixture-app/tools/chocolateyInstall.ps1',
+        'site/packages/fixture-app/index.html'
+    )) {
+        if (-not (Test-Path -LiteralPath (Join-Path $tempRoot $relative) -PathType Leaf)) {
+            throw "Projection generator did not create required output: $relative"
+        }
+    }
+
+    $scoop = Get-Content -LiteralPath (Join-Path $tempRoot 'bucket/fixture-app.json') -Raw | ConvertFrom-Json
+    if ($scoop.version -ne '1.2.3' -or $scoop.architecture.'64bit'.hash -ne ('b' * 64)) {
+        throw 'Generated Scoop fixture lost version/hash binding.'
+    }
+
+    $wingetText = Get-Content -LiteralPath (Join-Path $tempRoot 'distribution/winget/Example.FixtureApp/1.2.3/Example.FixtureApp.yaml') -Raw
+    foreach ($token in @('Example.FixtureApp', 'InstallerType: ''nullsoft''', ('a' * 64), 'Scope: ''user''', 'ManifestVersion: 1.12.0')) {
+        if (-not $wingetText.Contains($token, [StringComparison]::Ordinal)) {
+            throw "Generated WinGet fixture lost required token: $token"
+        }
+    }
+
+    $pendingPath = Join-Path $tempRoot 'pending.json'
+    $pending = Get-Content -LiteralPath $fixture -Raw | ConvertFrom-Json
+    $pending.package.state.promotion = 'pending-client-lifecycle-proof'
+    $pending | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $pendingPath -Encoding utf8NoBOM
+    $rejected = $false
+    try {
+        & $generator -InputPath $pendingPath -OutputRoot (Join-Path $tempRoot 'should-not-exist')
+    } catch {
+        if ($_.Exception.Message -match 'Installable projection denied') {
+            $rejected = $true
+        } else {
+            throw
+        }
+    }
+    if (-not $rejected) {
+        throw 'Projection generator accepted a package without lifecycle/promotion approval.'
+    }
+} finally {
+    if (Test-Path -LiteralPath $tempRoot) {
+        Remove-Item -LiteralPath $tempRoot -Recurse -Force
+    }
+}
+
+Write-Host 'Public Foundry structure, usage/client contracts, projection generation, and immutable action-pin validation passed.'
