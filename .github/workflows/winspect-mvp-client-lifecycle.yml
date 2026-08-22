@@ -1,0 +1,59 @@
+name: WinInspect MVP client lifecycle
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/winspect-mvp-client-lifecycle.yml'
+      - 'scripts/Test-WinGetClientLifecycle.ps1'
+      - 'scripts/New-PublicPackageProjection.ps1'
+      - 'tests/fixtures/public-package.json'
+      - 'docs/client-interface-redteam.md'
+      - 'scripts/Test-PublicFoundry.ps1'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/winspect-mvp-client-lifecycle.yml'
+      - 'scripts/Test-WinGetClientLifecycle.ps1'
+      - 'scripts/New-PublicPackageProjection.ps1'
+      - 'tests/fixtures/public-package.json'
+      - 'docs/client-interface-redteam.md'
+      - 'scripts/Test-PublicFoundry.ps1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lifecycle:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Validate public Foundry structure and projection fixture
+        shell: pwsh
+        run: ./scripts/Test-PublicFoundry.ps1
+
+      - name: Prove exact WinInspect v0.4.2 lifecycle through WinGet local manifest
+        shell: pwsh
+        run: |
+          ./scripts/Test-WinGetClientLifecycle.ps1 `
+            -InstallerUrl 'https://github.com/SemperSupra/WinInspect/releases/download/v0.4.2/WinInspect-Installer-v0.4.2.exe' `
+            -InstallerSha256 '77d05af906737bfd259c65901636e9e8cd0ea659d0f48c069189d7492e606809' `
+            -PackageIdentifier 'SemperSupra.WinInspect' `
+            -PackageVersion '0.4.2' `
+            -Publisher 'Mark E. DeYoung' `
+            -PackageName 'WinInspect' `
+            -License 'PolyForm-Noncommercial-1.0.0' `
+            -Description 'Window inspection and automation tool for Windows and Wine.' `
+            -EvidencePath '${{ github.workspace }}\wininspect-v0.4.2-client-lifecycle.json'
+
+      - name: Upload lifecycle evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: wininspect-v0.4.2-client-lifecycle
+          path: wininspect-v0.4.2-client-lifecycle.json
+          if-no-files-found: error
+          retention-days: 30
