@@ -1,0 +1,65 @@
+name: Release trust self-test
+
+on:
+  pull_request:
+    paths:
+      - "actions/release-trust/**"
+      - "scripts/**"
+      - ".github/workflows/release-trust-selftest.yml"
+      - "docs/**"
+      - "README.md"
+  push:
+    branches:
+      - main
+    paths:
+      - "actions/release-trust/**"
+      - "scripts/**"
+      - ".github/workflows/release-trust-selftest.yml"
+      - "docs/**"
+      - "README.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+jobs:
+  self-test:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validate public Foundry structure
+        shell: pwsh
+        run: ./scripts/Test-PublicFoundry.ps1
+
+      - name: Create deterministic fixture
+        shell: pwsh
+        run: |
+          $fixture = Join-Path $env:GITHUB_WORKSPACE 'fixture/dist'
+          New-Item -ItemType Directory -Path $fixture -Force | Out-Null
+          [IO.File]::WriteAllText((Join-Path $fixture 'sample.exe'), "foundry-self-test-binary`n", [Text.UTF8Encoding]::new($false))
+          [IO.File]::WriteAllText((Join-Path $fixture 'README.txt'), "foundry-self-test`n", [Text.UTF8Encoding]::new($false))
+
+      - name: Generate Foundry release trust bundle
+        uses: ./actions/release-trust
+        with:
+          artifact-root: ${{ github.workspace }}/fixture/dist
+          subject-path: ${{ github.workspace }}/fixture/dist/*
+          output-directory: ${{ github.workspace }}/fixture/trust
+          trust-artifact-name: foundry-release-trust-selftest-${{ github.run_id }}
+          attest: ${{ github.event_name != 'pull_request' }}
+
+      - name: Validate generated trust bundle
+        shell: pwsh
+        env:
+          EXPECT_ATTESTATIONS: ${{ github.event_name != 'pull_request' }}
+        run: |
+          ./scripts/Test-ReleaseTrustBundle.ps1 `
+            -BundleDirectory (Join-Path $env:GITHUB_WORKSPACE 'fixture/trust') `
+            -ArtifactRoot (Join-Path $env:GITHUB_WORKSPACE 'fixture/dist') `
+            -ExpectAttestations:($env:EXPECT_ATTESTATIONS -eq 'true')
