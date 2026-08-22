@@ -47,7 +47,7 @@
       },
       "winget": {
         "id": "Example.FixtureApp",
-        "manifestVersion": "1.12.0"
+        "manifestVersion": "1.10.0"
       },
       "chocolatey": {
         "id": "fixture-app",
