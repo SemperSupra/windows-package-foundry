@@ -121,9 +121,12 @@ try {
         throw "Failed to enable WinGet LocalManifestFiles; exit code $LASTEXITCODE."
     }
 
+    $manifestVersion = '1.12.0'
     $manifestPath = Join-Path $work 'manifest.yaml'
     function YamlQuote([string] $Value) { return "'" + $Value.Replace("'", "''") + "'" }
     $manifest = @(
+        "# yaml-language-server: `$schema=https://aka.ms/winget-manifest.singleton.$manifestVersion.schema.json",
+        '',
         "PackageIdentifier: $(YamlQuote $PackageIdentifier)",
         "PackageVersion: $(YamlQuote $PackageVersion)",
         "PackageLocale: 'en-US'",
@@ -141,7 +144,7 @@ try {
         "    Silent: '/S'",
         "    SilentWithProgress: '/S'",
         "ManifestType: 'singleton'",
-        'ManifestVersion: 1.12.0'
+        "ManifestVersion: $manifestVersion"
     ) -join "`n"
     Set-Content -LiteralPath $manifestPath -Value ($manifest + "`n") -Encoding utf8NoBOM
 
