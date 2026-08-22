@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/winspect-mvp-client-lifecycle.yml'
       - 'scripts/Test-WinGetClientLifecycle.ps1'
+      - 'scripts/Test-WinGetPortableLifecycle.ps1'
       - 'scripts/New-PublicPackageProjection.ps1'
       - 'tests/fixtures/public-package.json'
       - 'docs/client-interface-redteam.md'
@@ -15,6 +16,7 @@ on:
     paths:
       - '.github/workflows/winspect-mvp-client-lifecycle.yml'
       - 'scripts/Test-WinGetClientLifecycle.ps1'
+      - 'scripts/Test-WinGetPortableLifecycle.ps1'
       - 'scripts/New-PublicPackageProjection.ps1'
       - 'tests/fixtures/public-package.json'
       - 'docs/client-interface-redteam.md'
@@ -36,7 +38,23 @@ jobs:
         shell: pwsh
         run: ./scripts/Test-PublicFoundry.ps1
 
-      - name: Prove exact WinInspect v0.4.2 lifecycle through WinGet local manifest
+      - name: Prove exact WinInspect v0.4.2 lifecycle through WinGet portable archive
+        shell: pwsh
+        run: |
+          ./scripts/Test-WinGetPortableLifecycle.ps1 `
+            -PortableUrl 'https://github.com/SemperSupra/WinInspect/releases/download/v0.4.2/WinInspectPortable-v0.4.2.zip' `
+            -PortableSha256 '34c6019b1ac59f284f5d88e6864e88de71043e36e5c61c0f78d052cd14790e0a' `
+            -PackageIdentifier 'SemperSupra.WinInspect' `
+            -PackageVersion '0.4.2' `
+            -Publisher 'Mark E. DeYoung' `
+            -PackageName 'WinInspect' `
+            -License 'PolyForm-Noncommercial-1.0.0' `
+            -Description 'Window inspection and automation tool for Windows and Wine.' `
+            -EvidencePath '${{ github.workspace }}\wininspect-v0.4.2-client-lifecycle.json'
+
+      - name: Diagnose NSIS-through-WinGet compatibility
+        if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
         shell: pwsh
         run: |
           ./scripts/Test-WinGetClientLifecycle.ps1 `
@@ -48,51 +66,8 @@ jobs:
             -PackageName 'WinInspect' `
             -License 'PolyForm-Noncommercial-1.0.0' `
             -Description 'Window inspection and automation tool for Windows and Wine.' `
-            -EvidencePath '${{ github.workspace }}\wininspect-v0.4.2-client-lifecycle.json' `
-            -FailureEvidencePath '${{ github.workspace }}\wininspect-v0.4.2-live-timeout.json'
-
-      - name: Capture lifecycle failure diagnostics
-        if: failure()
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Continue'
-          $interesting = Get-CimInstance Win32_Process | Where-Object {
-            $_.Name -match '^(winget|WinInspect|vc_redist|installer|uninstall).*' -or
-            $_.CommandLine -match 'WinInspect|vc_redist|SemperSupra'
-          } | Select-Object ProcessId, ParentProcessId, Name, ExecutablePath, CommandLine
-
-          $windows = Get-Process | Where-Object {
-            $_.MainWindowHandle -ne 0 -and $_.ProcessName -match 'winget|WinInspect|vc_redist|installer|uninstall'
-          } | Select-Object Id, ProcessName, MainWindowTitle, Responding
-
-          $installDir = Join-Path $env:LOCALAPPDATA 'WinInspect'
-          $installedFiles = if (Test-Path -LiteralPath $installDir) {
-            Get-ChildItem -LiteralPath $installDir -Force -ErrorAction SilentlyContinue |
-              Select-Object Name, Length, LastWriteTimeUtc
-          } else { @() }
-
-          $registry = @{}
-          foreach ($path in @(
-            'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\WinInspect',
-            'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\WinInspect',
-            'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\WinInspect'
-          )) {
-            if (Test-Path -LiteralPath $path) {
-              $registry[$path] = Get-ItemProperty -LiteralPath $path |
-                Select-Object DisplayName, DisplayVersion, Publisher, UninstallString, InstallLocation
-            }
-          }
-
-          [ordered]@{
-            capturedAtUtc = [DateTime]::UtcNow.ToString('o')
-            processes = @($interesting)
-            visibleWindows = @($windows)
-            installDirectory = $installDir
-            installedFiles = @($installedFiles)
-            uninstallRegistry = $registry
-          } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath 'wininspect-v0.4.2-failure-diagnostics.json' -Encoding utf8NoBOM
-
-          Get-Content -LiteralPath 'wininspect-v0.4.2-failure-diagnostics.json' | Write-Host
+            -EvidencePath '${{ github.workspace }}\wininspect-v0.4.2-nsis-winget-lifecycle.json' `
+            -FailureEvidencePath '${{ github.workspace }}\wininspect-v0.4.2-nsis-winget-timeout.json'
 
       - name: Upload lifecycle evidence
         if: success()
@@ -103,13 +78,13 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload lifecycle failure diagnostics
-        if: failure()
+      - name: Upload optional NSIS diagnostic evidence
+        if: always() && github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: wininspect-v0.4.2-client-lifecycle-failure
+          name: wininspect-v0.4.2-nsis-winget-diagnostics
           path: |
-            wininspect-v0.4.2-failure-diagnostics.json
-            wininspect-v0.4.2-live-timeout.json
-          if-no-files-found: error
+            wininspect-v0.4.2-nsis-winget-lifecycle.json
+            wininspect-v0.4.2-nsis-winget-timeout.json
+          if-no-files-found: warn
           retention-days: 30
