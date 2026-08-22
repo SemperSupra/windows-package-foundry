@@ -8,9 +8,11 @@ It is **not** the authoritative repository for private package policy, private v
 
 ## How to use this repository
 
-- **Humans:** start with `docs/usage.md`, then use `docs/trust-model.md` to understand what the public evidence does and does not prove.
-- **Product/release automation:** use the immutable caller contract in `docs/release-trust.md` and the machine-readable zoning in `.foundry/repository-role.json`.
-- **Agents:** read `AGENTS.md`, `.github/copilot-instructions.md`, and `docs/usage.md` before proposing changes.
+- **Humans:** start with `docs/usage.md`; `docs/client-interface-contract.md` defines the native package-manager and web UI experience; use `docs/trust-model.md` to understand what the public evidence does and does not prove.
+- **Product/release automation:** use the immutable caller contract in `docs/release-trust.md`, the client/machine interface contract in `docs/client-interface-contract.md`, and the machine-readable zoning in `.foundry/repository-role.json`.
+- **Agents:** read `AGENTS.md`, `.github/copilot-instructions.md`, `docs/usage.md`, and `docs/client-interface-contract.md` before proposing changes.
+
+The target client UX is ordinary native package-manager usage after at most one simple source/bootstrap step. The same generated public package model should drive the human web UI, structured automation data, package-manager metadata, and any thin protocol adapters.
 
 External community registries such as WinGet Community, Chocolatey Community, Scoop buckets, and PortableApps.com are optional downstream mirrors or convenience channels. They are not authoritative Foundry state and are not required for a Foundry release to be usable.
 
@@ -188,6 +190,7 @@ Windows Package Foundry provides reusable public build/package/trust infrastruct
 ## Machine and agent contracts
 
 - `docs/usage.md` — public usage contract for humans, automation, and agents;
+- `docs/client-interface-contract.md` — native package-manager UX, generated web/JSON interfaces, and protocol-adapter boundary;
 - `.foundry/repository-role.json` — machine-readable public repository role and zoning;
 - `AGENTS.md` — contributor/agent safety and authorship rules;
 - `.github/copilot-instructions.md` — coding-agent bootstrap rules;
