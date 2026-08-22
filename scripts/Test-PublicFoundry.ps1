@@ -37,7 +37,7 @@ foreach ($requiredUsageToken in @(
     '## Agents',
     'External registry policy',
     'optional downstream mirrors',
-    'not required for a Foundry release to be usable',
+    'must not become a release dependency',
     'gh attestation verify',
     '.foundry/repository-role.json'
 )) {
