@@ -46,19 +46,19 @@ function Assert-InstalledState {
     param([string] $Stage)
 
     if (-not (Test-Path -LiteralPath $ExpectedInstallDirectory -PathType Container)) {
-        throw "$Stage: expected install directory is absent: $ExpectedInstallDirectory"
+        throw "${Stage}: expected install directory is absent: $ExpectedInstallDirectory"
     }
 
     foreach ($exe in $ExpectedExecutables) {
         $path = Join-Path $ExpectedInstallDirectory $exe
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-            throw "$Stage: expected executable is absent: $path"
+            throw "${Stage}: expected executable is absent: $path"
         }
     }
 
     $hkcu = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$UninstallKeyName"
     if (-not (Test-Path -LiteralPath $hkcu)) {
-        throw "$Stage: expected HKCU uninstall registration is absent: $hkcu"
+        throw "${Stage}: expected HKCU uninstall registration is absent: $hkcu"
     }
 
     $hklmPaths = @(
@@ -67,7 +67,7 @@ function Assert-InstalledState {
     )
     foreach ($path in $hklmPaths) {
         if (Test-Path -LiteralPath $path) {
-            throw "$Stage: unexpected machine-scope uninstall registration exists: $path"
+            throw "${Stage}: unexpected machine-scope uninstall registration exists: $path"
         }
     }
 }
@@ -106,8 +106,6 @@ try {
         throw "Downloaded installer SHA-256 mismatch. Expected $InstallerSha256, got $actualHash."
     }
 
-    # GitHub hosted Windows Server runners do not guarantee WinGet. Use Microsoft's
-    # documented bootstrap path only when winget is absent.
     if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
         Install-PackageProvider -Name NuGet -Force | Out-Null
         Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
@@ -158,8 +156,6 @@ try {
     }
     Assert-InstalledState -Stage 'WinGet install'
 
-    # Re-run the native installer silently to prove the underlying package is
-    # safely repeatable at the same immutable version.
     $repeat = Start-Process -FilePath $installerPath -ArgumentList '/S' -Wait -PassThru
     Assert-ExitCode -Process $repeat -Operation 'Repeat silent install'
     Assert-InstalledState -Stage 'Repeat install'
