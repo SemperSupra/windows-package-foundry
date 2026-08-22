@@ -50,10 +50,63 @@ jobs:
             -Description 'Window inspection and automation tool for Windows and Wine.' `
             -EvidencePath '${{ github.workspace }}\wininspect-v0.4.2-client-lifecycle.json'
 
+      - name: Capture lifecycle failure diagnostics
+        if: failure()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $interesting = Get-CimInstance Win32_Process | Where-Object {
+            $_.Name -match '^(winget|WinInspect|vc_redist|installer|uninstall).*' -or
+            $_.CommandLine -match 'WinInspect|vc_redist|SemperSupra'
+          } | Select-Object ProcessId, ParentProcessId, Name, ExecutablePath, CommandLine
+
+          $windows = Get-Process | Where-Object {
+            $_.MainWindowHandle -ne 0 -and $_.ProcessName -match 'winget|WinInspect|vc_redist|installer|uninstall'
+          } | Select-Object Id, ProcessName, MainWindowTitle, Responding
+
+          $installDir = Join-Path $env:LOCALAPPDATA 'WinInspect'
+          $installedFiles = if (Test-Path -LiteralPath $installDir) {
+            Get-ChildItem -LiteralPath $installDir -Force -ErrorAction SilentlyContinue |
+              Select-Object Name, Length, LastWriteTimeUtc
+          } else { @() }
+
+          $registry = @{}
+          foreach ($path in @(
+            'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\WinInspect',
+            'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\WinInspect',
+            'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\WinInspect'
+          )) {
+            if (Test-Path -LiteralPath $path) {
+              $registry[$path] = Get-ItemProperty -LiteralPath $path |
+                Select-Object DisplayName, DisplayVersion, Publisher, UninstallString, InstallLocation
+            }
+          }
+
+          [ordered]@{
+            capturedAtUtc = [DateTime]::UtcNow.ToString('o')
+            processes = @($interesting)
+            visibleWindows = @($windows)
+            installDirectory = $installDir
+            installedFiles = @($installedFiles)
+            uninstallRegistry = $registry
+          } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath 'wininspect-v0.4.2-failure-diagnostics.json' -Encoding utf8NoBOM
+
+          Get-Content -LiteralPath 'wininspect-v0.4.2-failure-diagnostics.json' | Write-Host
+
       - name: Upload lifecycle evidence
+        if: success()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: wininspect-v0.4.2-client-lifecycle
           path: wininspect-v0.4.2-client-lifecycle.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload lifecycle failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: wininspect-v0.4.2-client-lifecycle-failure
+          path: wininspect-v0.4.2-failure-diagnostics.json
           if-no-files-found: error
           retention-days: 30
