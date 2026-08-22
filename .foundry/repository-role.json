@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "repository": "SemperSupra/windows-package-foundry",
+  "visibility": "public",
+  "role": "public-execution-and-distribution",
+  "authoritativeForPackagePolicy": false,
+  "authoritativePrivateRepository": "SemperSupra/windows-package-foundry-private",
+  "zones": {
+    "genericExecution": {
+      "authorship": "hand-authored-reviewed-public",
+      "allowedClasses": [
+        "reusable-workflows",
+        "generic-build-tooling",
+        "generic-package-templates",
+        "ordinary-public-tests",
+        "checksum-sbom-provenance-tools",
+        "public-documentation"
+      ],
+      "privateRepositoryReadCredentialsAllowed": false,
+      "privateValidatorKnowledgeAllowed": false
+    },
+    "distribution": {
+      "authorship": "generated-from-private-authoritative-state",
+      "authoritative": false,
+      "allowedClasses": [
+        "winget-metadata",
+        "scoop-metadata",
+        "chocolatey-metadata",
+        "public-catalog-metadata",
+        "public-role-and-provenance-markers"
+      ]
+    }
+  },
+  "trustClaims": {
+    "establishes": [
+      "public-source-inspectability",
+      "workflow-inspectability",
+      "build-provenance",
+      "ordinary-public-test-evidence"
+    ],
+    "doesNotEstablish": [
+      "software-correctness",
+      "software-security",
+      "equivalence-to-private-validation"
+    ]
+  },
+  "airlock": {
+    "mode": "constructive-allowlist",
+    "copyPrivateTreeThenDeleteDenied": true
+  }
+}
