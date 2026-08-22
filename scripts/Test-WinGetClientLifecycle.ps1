@@ -115,13 +115,16 @@ try {
     }
 
     $winget = Get-Command winget.exe -ErrorAction Stop
-    Write-Host "Using WinGet: $($winget.Source)"
+    $wingetVersion = (& $winget.Source --version | Select-Object -First 1)
+    Write-Host "Using WinGet $wingetVersion at $($winget.Source)"
     & $winget.Source settings --enable LocalManifestFiles
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to enable WinGet LocalManifestFiles; exit code $LASTEXITCODE."
     }
 
-    $manifestVersion = '1.12.0'
+    # 1.10.0 is the MVP compatibility floor: all fields used here are available
+    # in it, and newer clients remain able to consume the older frozen schema.
+    $manifestVersion = '1.10.0'
     $manifestPath = Join-Path $work 'manifest.yaml'
     function YamlQuote([string] $Value) { return "'" + $Value.Replace("'", "''") + "'" }
     $manifest = @(
@@ -175,9 +178,10 @@ try {
         packageVersion = $PackageVersion
         installerUrl = $InstallerUrl
         installerSha256 = $InstallerSha256.ToLowerInvariant()
+        manifestVersion = $manifestVersion
         runner = [ordered]@{
             os = [System.Environment]::OSVersion.VersionString
-            wingetVersion = (& $winget.Source --version | Select-Object -First 1)
+            wingetVersion = $wingetVersion
         }
         checks = [ordered]@{
             hashVerified = $true
