@@ -19,6 +19,7 @@ $required = @(
     '.github/workflows/release-trust-selftest.yml',
     '.foundry/repository-role.json',
     'docs/usage.md',
+    'docs/client-interface-contract.md',
     'docs/trust-model.md',
     'docs/release-trust.md'
 )
@@ -35,6 +36,8 @@ foreach ($requiredUsageToken in @(
     '## Humans',
     '## Product automation',
     '## Agents',
+    'Client UX and DX contract',
+    'docs/client-interface-contract.md',
     'External registry policy',
     'optional downstream mirrors',
     'must not become a release dependency',
@@ -46,9 +49,39 @@ foreach ($requiredUsageToken in @(
     }
 }
 
+$clientText = Get-Content -LiteralPath (Join-Path $RepositoryRoot 'docs/client-interface-contract.md') -Raw
+foreach ($requiredClientToken in @(
+    '## Primary UX requirement',
+    'package manager''s native commands',
+    '## Human interface',
+    '## Automation interface',
+    '## Agent interface',
+    '## GitHub Pages role',
+    'static hosting',
+    '## Protocol adapter requirement',
+    '### Scoop',
+    '### WinGet',
+    '### Chocolatey',
+    'one generated public package model',
+    'thin stateless protocol adapters'
+)) {
+    if (-not $clientText.Contains($requiredClientToken, [StringComparison]::Ordinal)) {
+        throw "Public client interface contract lost required marker: $requiredClientToken"
+    }
+}
+
 $agentsText = Get-Content -LiteralPath (Join-Path $RepositoryRoot 'AGENTS.md') -Raw
-if (-not $agentsText.Contains('docs/usage.md', [StringComparison]::Ordinal)) {
-    throw 'AGENTS.md must direct agents to the public usage contract.'
+foreach ($requiredAgentToken in @('docs/usage.md', 'docs/client-interface-contract.md', 'native package-manager consumption')) {
+    if (-not $agentsText.Contains($requiredAgentToken, [StringComparison]::Ordinal)) {
+        throw "AGENTS.md lost required client-interface marker: $requiredAgentToken"
+    }
+}
+
+$copilotText = Get-Content -LiteralPath (Join-Path $RepositoryRoot '.github/copilot-instructions.md') -Raw
+foreach ($requiredCopilotToken in @('docs/client-interface-contract.md', 'native package-manager consumption', 'GitHub Pages SPA')) {
+    if (-not $copilotText.Contains($requiredCopilotToken, [StringComparison]::Ordinal)) {
+        throw "Copilot instructions lost required client-interface marker: $requiredCopilotToken"
+    }
 }
 
 $scanPaths = @(
@@ -100,4 +133,4 @@ foreach ($token in $forbidden) {
     }
 }
 
-Write-Host 'Public Foundry structure, usage contract, and immutable action-pin validation passed.'
+Write-Host 'Public Foundry structure, usage/client contracts, and immutable action-pin validation passed.'
