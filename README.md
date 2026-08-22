@@ -6,6 +6,14 @@ This repository is intentionally observable. Users should be able to inspect the
 
 It is **not** the authoritative repository for private package policy, private validation evidence, or product-specific evaluator knowledge.
 
+## How to use this repository
+
+- **Humans:** start with `docs/usage.md`, then use `docs/trust-model.md` to understand what the public evidence does and does not prove.
+- **Product/release automation:** use the immutable caller contract in `docs/release-trust.md` and the machine-readable zoning in `.foundry/repository-role.json`.
+- **Agents:** read `AGENTS.md`, `.github/copilot-instructions.md`, and `docs/usage.md` before proposing changes.
+
+External community registries such as WinGet Community, Chocolatey Community, Scoop buckets, and PortableApps.com are optional downstream mirrors or convenience channels. They are not authoritative Foundry state and are not required for a Foundry release to be usable.
+
 ## MVP release-trust tooling
 
 The first operational public-execution capability is `actions/release-trust`.
@@ -179,6 +187,7 @@ Windows Package Foundry provides reusable public build/package/trust infrastruct
 
 ## Machine and agent contracts
 
+- `docs/usage.md` — public usage contract for humans, automation, and agents;
 - `.foundry/repository-role.json` — machine-readable public repository role and zoning;
 - `AGENTS.md` — contributor/agent safety and authorship rules;
 - `.github/copilot-instructions.md` — coding-agent bootstrap rules;
