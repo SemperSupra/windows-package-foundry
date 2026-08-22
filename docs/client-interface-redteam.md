@@ -15,6 +15,7 @@ This record captures the adversarial review of the public Foundry client UX/DX d
 7. **Generate atomically.** HTML, JSON, and client projections for a package release must be generated from the same model/revision and validated together. Never update package-manager surfaces independently.
 8. **Fail closed on lifecycle/promotion state.** Installable client projections may not be generated from a package whose private-approved public projection does not explicitly report lifecycle and promotion approval.
 9. **Adapters, if later justified, are translators only.** They consume sanitized public projection data, hold no authoritative package state, and have no credential or network path into private Foundry state.
+10. **Prefer a compatible manifest floor over unnecessary client upgrades.** The WinGet MVP uses the frozen singleton manifest schema `1.10.0`; it contains every field the Foundry currently needs and is accepted by a broader installed-client range than newer schema revisions. Raise the floor only when a required field or behavior justifies doing so.
 
 ## MVP target
 
