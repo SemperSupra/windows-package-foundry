@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "package": {
+    "slug": "fixture-app",
+    "identity": {
+      "id": "Example.FixtureApp",
+      "name": "Fixture App",
+      "publisher": "Example Publisher",
+      "description": "Deterministic public projection self-test fixture.",
+      "homepage": "https://github.com/example/project",
+      "license": "MIT",
+      "licenseUrl": "https://github.com/example/project/blob/0123456789abcdef0123456789abcdef01234567/LICENSE"
+    },
+    "release": {
+      "version": "1.2.3",
+      "tag": "v1.2.3",
+      "repository": "example/project",
+      "sourceSha": "0123456789abcdef0123456789abcdef01234567",
+      "sourceUrl": "https://github.com/example/project/tree/0123456789abcdef0123456789abcdef01234567",
+      "releaseUrl": "https://github.com/example/project/releases/tag/v1.2.3"
+    },
+    "state": {
+      "provenance": "approved",
+      "lifecycle": "approved",
+      "promotion": "approved"
+    },
+    "artifacts": {
+      "installer": {
+        "name": "Fixture-Installer-v1.2.3.exe",
+        "url": "https://github.com/example/project/releases/download/v1.2.3/Fixture-Installer-v1.2.3.exe",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "architecture": "x64",
+        "installerType": "nullsoft",
+        "scope": "user",
+        "silentArgs": "/S"
+      },
+      "portable": {
+        "name": "FixturePortable-v1.2.3.zip",
+        "url": "https://github.com/example/project/releases/download/v1.2.3/FixturePortable-v1.2.3.zip",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    },
+    "clients": {
+      "scoop": {
+        "id": "fixture-app",
+        "bin": ["fixture.exe"]
+      },
+      "winget": {
+        "id": "Example.FixtureApp",
+        "manifestVersion": "1.12.0"
+      },
+      "chocolatey": {
+        "id": "fixture-app",
+        "packageSourceUrl": "https://github.com/example/foundry/tree/main/chocolatey/packages/fixture-app",
+        "iconUrl": "https://raw.githubusercontent.com/example/project/0123456789abcdef0123456789abcdef01234567/icon.png",
+        "tags": "fixture test"
+      }
+    }
+  }
+}
