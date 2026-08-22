@@ -6,6 +6,37 @@ This repository is intentionally observable. Users should be able to inspect the
 
 It is **not** the authoritative repository for private package policy, private validation evidence, or product-specific evaluator knowledge.
 
+## MVP release-trust tooling
+
+The first operational public-execution capability is `actions/release-trust`.
+
+It is designed to wrap a completed public product build with a reusable, inspectable trust envelope rather than replace the product's working build system. The action can produce:
+
+- a deterministic SHA-256 inventory of the public build output;
+- an SPDX JSON SBOM;
+- a public build-context manifest tying the output to repository/source/workflow/Foundry identities;
+- GitHub/Sigstore provenance and SBOM attestations;
+- a self-hashed trust-bundle manifest;
+- a workflow artifact that can be attached to a public release or ingested by the private validation plane.
+
+All external GitHub Actions used by the Foundry trust path are pinned by full commit SHA and CI rejects mutable action references in this execution surface.
+
+See `docs/release-trust.md` for the caller contract, required permissions, output format, and independent verification procedure.
+
+The initial MVP consumer is **WinInspect**. The target proof is:
+
+```text
+WinInspect public source/tag
+  -> public Windows build/test/package
+    -> Foundry public trust envelope
+      -> immutable public release
+        -> private Foundry provenance + validation gate
+          -> generated public package metadata
+            -> clean Windows client lifecycle proof
+```
+
+The Foundry MVP is not considered complete until that whole chain is demonstrated.
+
 ## Repository role
 
 This public repository contains two distinct zones.
@@ -14,7 +45,7 @@ This public repository contains two distinct zones.
 
 This zone may contain:
 
-- reusable GitHub Actions workflows;
+- reusable/composite GitHub Actions and workflows;
 - generic Windows build/package templates;
 - portable ZIP and installer helpers;
 - checksum, SBOM, provenance, and artifact-attestation helpers;
@@ -36,12 +67,13 @@ The distribution zone may contain generated public-safe metadata such as:
 
 Generated distribution metadata is projected from the private authoritative Foundry state and must not be independently hand-authored here.
 
-The preferred future layout is conceptually:
+The preferred layout is conceptually:
 
 ```text
 windows-package-foundry/
 |
 |-- .github/workflows/        public generic infrastructure
+|-- actions/                  reusable public trust/release actions
 |-- tooling/                  public generic infrastructure
 |-- templates/                public generic infrastructure
 |-- docs/                     public documentation
@@ -115,17 +147,17 @@ Public workflows must not receive credentials that allow them to read private Fo
 
 ## GitHub Actions and build observability
 
-Public product repositories are intended to call reusable workflows hosted here for generic Windows build/package work.
+Public product repositories are intended to call reusable/composite tooling hosted here for generic Windows build/release trust work.
 
 Under GitHub's current billing model, reusable-workflow execution is billed to the **caller**. Having the caller itself be public preserves the standard public-repository hosted-runner cost advantage while also making the build path inspectable.
 
 The billing benefit is an optimization, not a security invariant. The build process should remain understandable and locally reproducible if GitHub pricing or product policy changes.
 
-For release workflows, prefer:
+For release workflows, require or prefer:
 
 - immutable public source/tag identity;
 - third-party Actions pinned to full commit SHAs;
-- cross-repository reusable workflows pinned to immutable commit SHAs;
+- cross-repository Foundry references pinned to immutable commit SHAs;
 - minimal token permissions;
 - secret-free, non-privileged execution for untrusted pull requests;
 - locked dependencies/toolchains where practical;
@@ -143,11 +175,12 @@ Bit-for-bit Windows reproducibility is useful where cheap, but it is not require
 
 Application-specific source should normally live in that application's own public source/release repository. The application repository remains the canonical source/release location for its public binaries and source snapshots.
 
-Windows Package Foundry provides reusable public build/package infrastructure and public-safe distribution metadata. It does not become a source-code mirror for every product.
+Windows Package Foundry provides reusable public build/package/trust infrastructure and public-safe distribution metadata. It does not become a source-code mirror for every product.
 
 ## Machine and agent contracts
 
 - `.foundry/repository-role.json` — machine-readable public repository role and zoning;
 - `AGENTS.md` — contributor/agent safety and authorship rules;
 - `.github/copilot-instructions.md` — coding-agent bootstrap rules;
-- `docs/trust-model.md` — user-facing trust and provenance model.
+- `docs/trust-model.md` — user-facing trust and provenance model;
+- `docs/release-trust.md` — operational public release-trust contract.
