@@ -161,7 +161,7 @@ $scoop = [ordered]@{
 }
 Set-Content -LiteralPath (Join-Path $OutputRoot "bucket/$scoopId.json") -Value ($scoop | ConvertTo-Json -Depth 10) -Encoding utf8NoBOM
 
-$manifestVersion = if ($model.package.clients.winget.manifestVersion) { [string]$model.package.clients.winget.manifestVersion } else { '1.12.0' }
+$manifestVersion = if ($model.package.clients.winget.manifestVersion) { [string]$model.package.clients.winget.manifestVersion } else { '1.10.0' }
 $winget = @(
     "# yaml-language-server: `$schema=https://aka.ms/winget-manifest.singleton.$manifestVersion.schema.json",
     '',
