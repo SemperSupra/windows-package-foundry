@@ -180,7 +180,14 @@ try {
     }
 
     $wingetText = Get-Content -LiteralPath (Join-Path $tempRoot 'distribution/winget/Example.FixtureApp/1.2.3/Example.FixtureApp.yaml') -Raw
-    foreach ($token in @('Example.FixtureApp', 'InstallerType: ''nullsoft''', ('a' * 64), 'Scope: ''user''', 'ManifestVersion: 1.12.0')) {
+    foreach ($token in @(
+        '# yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.10.0.schema.json',
+        'Example.FixtureApp',
+        'InstallerType: ''nullsoft''',
+        ('a' * 64),
+        'Scope: ''user''',
+        'ManifestVersion: 1.10.0'
+    )) {
         if (-not $wingetText.Contains($token, [StringComparison]::Ordinal)) {
             throw "Generated WinGet fixture lost required token: $token"
         }
