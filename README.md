@@ -2,27 +2,10 @@
 
 Public build and packaging workspace for Windows applications that are safe to build in public CI.
 
-## Current application: AU Companion
-
-`apps/au-companion/` hosts the public source/build packaging for a read-only Assumption University (Thailand) student companion MVP.
-
-### Public/private boundary
-
-This repository may contain only:
-- application source code;
-- build and installer definitions;
-- synthetic fixtures and tests;
-- public protocol/configuration facts;
-- release artifacts produced from the public source.
-
-It must never contain:
-- student credentials, MFA data, access/refresh tokens, cookies, or session material;
-- private student mailbox content, grades, schedules, financial records, or exported datasets;
-- authenticated captures/logs containing private student data;
-- APKs, decompiled production application trees, or proprietary binary assets.
-
-The AU Companion application processes authenticated student data only on the user's own machine. Public CI must be fully synthetic and require no AU/Microsoft credentials.
+This repository is intentionally **not** the canonical development/source repository for AU Companion. AU Companion development remains private; any future public deployment repository should receive only a release-safe snapshot through an explicit airlock/promotion step.
 
 ## CI policy
 
-Use public GitHub Actions runners for build/test/release so the private integration repository does not spend its included private-repository Actions minutes. CI must not require repository secrets for normal pull-request builds.
+Public GitHub Actions may be used for build/test/package work on release-safe public snapshots so private repositories do not consume their included private-repository Actions minutes.
+
+Public CI must never receive credentials, private student data, authenticated captures, or private-repository checkout credentials merely to build an application.
