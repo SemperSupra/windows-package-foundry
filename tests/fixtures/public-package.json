@@ -43,11 +43,22 @@
     "clients": {
       "scoop": {
         "id": "fixture-app",
-        "bin": ["fixture.exe"]
+        "bin": ["App/Fixture/fixture.exe"]
       },
       "winget": {
         "id": "Example.FixtureApp",
-        "manifestVersion": "1.10.0"
+        "manifestVersion": "1.10.0",
+        "artifact": "portable",
+        "nestedInstallerFiles": [
+          {
+            "relativeFilePath": "App\\Fixture\\fixture.exe",
+            "portableCommandAlias": "fixture"
+          },
+          {
+            "relativeFilePath": "App\\Fixture\\fixture-gui.exe",
+            "portableCommandAlias": "fixture-gui"
+          }
+        ]
       },
       "chocolatey": {
         "id": "fixture-app",
