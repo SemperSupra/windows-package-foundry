@@ -129,7 +129,6 @@ try {
         "- Architecture: 'x64'",
         "  InstallerUrl: $(YamlQuote $PortableUrl)",
         "  InstallerSha256: $PortableSha256",
-        "  Scope: 'user'",
         "ManifestType: 'singleton'",
         "ManifestVersion: $manifestVersion"
     ) -join "`n"
