@@ -18,6 +18,7 @@ $required = @(
     'scripts/Test-ReleaseTrustBundle.ps1',
     'scripts/New-PublicPackageProjection.ps1',
     'scripts/Test-WinGetClientLifecycle.ps1',
+    'scripts/Test-WinGetPortableLifecycle.ps1',
     '.github/workflows/release-trust-selftest.yml',
     '.github/workflows/winspect-mvp-client-lifecycle.yml',
     '.foundry/repository-role.json',
@@ -178,19 +179,28 @@ try {
     if ($scoop.version -ne '1.2.3' -or $scoop.architecture.'64bit'.hash -ne ('b' * 64)) {
         throw 'Generated Scoop fixture lost version/hash binding.'
     }
+    if (@($scoop.bin) -notcontains 'App/Fixture/fixture.exe') {
+        throw 'Generated Scoop fixture lost portable archive-relative binary path.'
+    }
 
     $wingetText = Get-Content -LiteralPath (Join-Path $tempRoot 'distribution/winget/Example.FixtureApp/1.2.3/Example.FixtureApp.yaml') -Raw
     foreach ($token in @(
         '# yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.10.0.schema.json',
         'Example.FixtureApp',
-        'InstallerType: ''nullsoft''',
-        ('a' * 64),
-        'Scope: ''user''',
+        "InstallerType: 'zip'",
+        "NestedInstallerType: 'portable'",
+        "RelativeFilePath: 'App\Fixture\fixture.exe'",
+        "PortableCommandAlias: 'fixture'",
+        ('b' * 64),
+        "Scope: 'user'",
         'ManifestVersion: 1.10.0'
     )) {
         if (-not $wingetText.Contains($token, [StringComparison]::Ordinal)) {
             throw "Generated WinGet fixture lost required token: $token"
         }
+    }
+    if ($wingetText.Contains(('a' * 64), [StringComparison]::Ordinal)) {
+        throw 'Portable WinGet projection unexpectedly uses the NSIS installer hash.'
     }
 
     $pendingPath = Join-Path $tempRoot 'pending.json'
