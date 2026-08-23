@@ -107,6 +107,7 @@ try {
 
     $install = @"
 `$ErrorActionPreference = 'Stop'
+try { [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]'Tls12,Tls13' } catch {}
 `$packageArgs = @{
     packageName    = '$PackageId'
     fileType       = 'exe'
@@ -138,13 +139,13 @@ if (Test-Path -LiteralPath `$uninstaller -PathType Leaf) {
     if (-not $nupkg) { throw 'Chocolatey pack did not create the expected nupkg.' }
     $nupkgHash = (Get-FileHash -LiteralPath $nupkg.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
 
-    Invoke-Choco -Operation 'choco-install-local-feed' -Arguments @('install', $PackageId, '--version', $PackageVersion, '--source', $feed, '--yes', '--no-progress')
+    Invoke-Choco -Operation 'choco-install-local-feed' -Arguments @('install', $PackageId, '--version', $PackageVersion, '--source', $feed, '--yes', '--no-progress', '--verbose')
     Assert-Installed
 
-    Invoke-Choco -Operation 'choco-repeat-install' -Arguments @('install', $PackageId, '--version', $PackageVersion, '--source', $feed, '--yes', '--no-progress', '--force')
+    Invoke-Choco -Operation 'choco-repeat-install' -Arguments @('install', $PackageId, '--version', $PackageVersion, '--source', $feed, '--yes', '--no-progress', '--verbose', '--force')
     Assert-Installed
 
-    Invoke-Choco -Operation 'choco-uninstall' -Arguments @('uninstall', $PackageId, '--yes', '--no-progress')
+    Invoke-Choco -Operation 'choco-uninstall' -Arguments @('uninstall', $PackageId, '--yes', '--no-progress', '--verbose')
     $cleanupMs = Wait-Uninstalled
 
     $localList = & choco.exe list --local-only --exact $PackageId --limit-output

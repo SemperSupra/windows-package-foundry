@@ -164,7 +164,7 @@ jobs:
             -PortableSha256 $env:PORTABLE_SHA256 `
             -PackageId 'wininspect' `
             -PackageVersion $env:VERSION `
-            -Bin @('App/WinInspect/winspect.exe','App/WinInspect/winspectd.exe','App/WinInspect/winspect-gui.exe') `
+            -Bin @('App/WinInspect/wininspect.exe','App/WinInspect/wininspectd.exe','App/WinInspect/wininspect-gui.exe') `
             -EvidencePath '${{ github.workspace }}\wininspect-scoop-lifecycle.json'
 
       - name: Upload Scoop lifecycle evidence
