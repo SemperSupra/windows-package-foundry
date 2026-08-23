@@ -19,10 +19,13 @@ if ($InstallerSha256 -notmatch '^[0-9a-fA-F]{64}$') { throw 'InstallerSha256 mus
 if ($InstallerUrl -notmatch '^https://github\.com/[^/]+/[^/]+/releases/download/') { throw 'InstallerUrl must be an immutable GitHub Release download URL.' }
 if ($PackageVersion -notmatch '^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$') { throw 'PackageVersion is not a supported package version.' }
 
+$managedSilentArgs = '/S /MANAGED-BY=chocolatey'
+$directSilentArgs = '/S'
 $work = Join-Path ([System.IO.Path]::GetTempPath()) ('foundry-chocolatey-' + [guid]::NewGuid().ToString('N'))
 $packageRoot = Join-Path $work 'package'
 $tools = Join-Path $packageRoot 'tools'
 $feed = Join-Path $work 'feed'
+$installerProbe = Join-Path $work 'WinInspect-installer-probe.exe'
 New-Item -ItemType Directory -Force -Path $tools, $feed | Out-Null
 
 function Invoke-Choco {
@@ -82,6 +85,15 @@ try {
     $chocoVersion = (& $choco.Source --version | Select-Object -First 1).Trim()
     Write-Host "Using Chocolatey $chocoVersion at $($choco.Source)"
 
+    # Keep an independently hash-verified copy so we can prove that a direct
+    # silent NSIS invocation cannot cross a Chocolatey-owned installation
+    # boundary without the explicit package-manager handoff switch.
+    Invoke-WebRequest -Uri $InstallerUrl -OutFile $installerProbe
+    $probeHash = (Get-FileHash -LiteralPath $installerProbe -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($probeHash -ne $InstallerSha256.ToLowerInvariant()) {
+        throw "Downloaded installer probe hash mismatch: expected $InstallerSha256, observed $probeHash"
+    }
+
     $nuspec = @"
 <?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
@@ -93,7 +105,7 @@ try {
     <owners>Mark E. DeYoung</owners>
     <projectUrl>https://github.com/SemperSupra/WinInspect</projectUrl>
     <packageSourceUrl>https://github.com/SemperSupra/windows-package-foundry</packageSourceUrl>
-    <licenseUrl>https://github.com/SemperSupra/WinInspect/blob/v0.4.2/LICENSE</licenseUrl>
+    <licenseUrl>https://github.com/SemperSupra/WinInspect/blob/v$PackageVersion/LICENSE</licenseUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>Window inspection and automation tool for Windows and Wine.</description>
     <tags>windows automation inspection screen-capture wine</tags>
@@ -117,7 +129,7 @@ try { [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityP
     checksumType   = 'sha256'
     checksum64     = '$($InstallerSha256.ToLowerInvariant())'
     checksumType64 = 'sha256'
-    silentArgs     = '/S'
+    silentArgs     = '$managedSilentArgs'
     validExitCodes = @(0, 3010)
 }
 Install-ChocolateyPackage @packageArgs
@@ -142,6 +154,15 @@ if (Test-Path -LiteralPath `$uninstaller -PathType Leaf) {
     Invoke-Choco -Operation 'choco-install-local-feed' -Arguments @('install', $PackageId, '--version', $PackageVersion, '--source', $feed, '--yes', '--no-progress', '--verbose')
     Assert-Installed
 
+    # The Chocolatey package is now the owner. A bare direct silent installer
+    # must fail closed; only Chocolatey's explicit /MANAGED-BY=chocolatey
+    # invocation is authorized to install/update while that ownership exists.
+    $directProcess = Start-Process -FilePath $installerProbe -ArgumentList $directSilentArgs -PassThru -Wait
+    if ($directProcess.ExitCode -eq 0) {
+        throw 'Direct silent NSIS invocation crossed a Chocolatey-owned installation boundary without explicit package-manager authorization.'
+    }
+    Assert-Installed
+
     Invoke-Choco -Operation 'choco-repeat-install' -Arguments @('install', $PackageId, '--version', $PackageVersion, '--source', $feed, '--yes', '--no-progress', '--verbose', '--force')
     Assert-Installed
 
@@ -162,11 +183,13 @@ if (Test-Path -LiteralPath `$uninstaller -PathType Leaf) {
         installerSha256 = $InstallerSha256.ToLowerInvariant()
         chocolateyVersion = $chocoVersion
         generatedNupkgSha256 = $nupkgHash
+        managedInstallerArgs = $managedSilentArgs
         checks = [ordered]@{
             localFeedPacked = 'passed'
             install = 'passed'
             userScopeRegistration = 'passed'
             machineScopeRegistrationAbsent = 'passed'
+            directSilentOwnershipBoundaryRejected = 'passed'
             repeatInstall = 'passed'
             uninstall = 'passed'
             cleanup = 'passed'
