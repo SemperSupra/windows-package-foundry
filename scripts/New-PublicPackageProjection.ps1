@@ -196,7 +196,6 @@ if ($wingetArtifact -eq 'portable') {
     $wingetLines.Add("- Architecture: $(Quote-Yaml ([string]$model.package.artifacts.installer.architecture))")
     $wingetLines.Add("  InstallerUrl: $(Quote-Yaml ([string]$model.package.artifacts.portable.url))")
     $wingetLines.Add("  InstallerSha256: $([string]$model.package.artifacts.portable.sha256)")
-    $wingetLines.Add("  Scope: 'user'")
 } else {
     $wingetLines.Add('Installers:')
     $wingetLines.Add("- Architecture: $(Quote-Yaml ([string]$model.package.artifacts.installer.architecture))")
