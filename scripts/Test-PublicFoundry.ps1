@@ -192,12 +192,14 @@ try {
         "RelativeFilePath: 'App\Fixture\fixture.exe'",
         "PortableCommandAlias: 'fixture'",
         ('b' * 64),
-        "Scope: 'user'",
         'ManifestVersion: 1.10.0'
     )) {
         if (-not $wingetText.Contains($token, [StringComparison]::Ordinal)) {
             throw "Generated WinGet fixture lost required token: $token"
         }
+    }
+    if ($wingetText.Contains("Scope: 'user'", [StringComparison]::Ordinal)) {
+        throw 'Portable WinGet projection contains unsupported Scope metadata.'
     }
     if ($wingetText.Contains(('a' * 64), [StringComparison]::Ordinal)) {
         throw 'Portable WinGet projection unexpectedly uses the NSIS installer hash.'
