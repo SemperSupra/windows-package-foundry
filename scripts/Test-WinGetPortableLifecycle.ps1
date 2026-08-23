@@ -141,7 +141,7 @@ try {
     Invoke-BoundedProcess -FilePath $winget.Source -Operation 'winget-repeat-install-portable' -Arguments @('install','--manifest',$manifestPath,'--accept-package-agreements','--accept-source-agreements','--disable-interactivity')
     Assert-PortableInstalled
 
-    Invoke-BoundedProcess -FilePath $winget.Source -Operation 'winget-uninstall-portable' -Arguments @('uninstall','--id',$PackageIdentifier,'--exact','--accept-source-agreements','--disable-interactivity')
+    Invoke-BoundedProcess -FilePath $winget.Source -Operation 'winget-uninstall-portable' -Arguments @('uninstall','--manifest',$manifestPath,'--purge','--accept-source-agreements','--disable-interactivity')
     $cleanupMs = Wait-PortableRemoved
 
     $evidence = [ordered]@{
@@ -162,7 +162,7 @@ try {
             wingetInstall = 'passed'
             aliasesPresent = @($aliases)
             repeatInstall = 'passed'
-            wingetUninstall = 'passed'
+            wingetUninstallByManifest = 'passed'
             aliasesRemoved = 'passed'
         }
         cleanupConvergenceMilliseconds = [math]::Round($cleanupMs, 1)
