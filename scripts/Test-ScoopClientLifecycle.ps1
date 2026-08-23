@@ -90,7 +90,8 @@ try {
     Invoke-Checked -FilePath 'git' -Operation 'bucket-git-add' -Arguments @('-C', $bucketRoot, 'add', 'bucket')
     Invoke-Checked -FilePath 'git' -Operation 'bucket-git-commit' -Arguments @('-C', $bucketRoot, 'commit', '-m', 'candidate')
 
-    & $scoop bucket add foundry-candidate $bucketRoot
+    $bucketUrl = "file:///$($bucketRoot.Replace('\', '/'))"
+    & $scoop bucket add foundry-candidate $bucketUrl
     if ($LASTEXITCODE -ne 0) { throw "scoop bucket add failed with exit code $LASTEXITCODE." }
 
     & $scoop install "foundry-candidate/$PackageId"

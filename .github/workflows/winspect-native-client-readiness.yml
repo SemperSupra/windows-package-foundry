@@ -58,7 +58,8 @@ jobs:
           $ErrorActionPreference = 'Stop'
           foreach ($path in @(
             'scripts/Test-ScoopClientLifecycle.ps1',
-            'scripts/Test-ChocolateyClientLifecycle.ps1'
+            'scripts/Test-ChocolateyClientLifecycle.ps1',
+            'scripts/Test-WinGetPortableLifecycle.ps1'
           )) {
             $tokens = $null
             $errors = $null
@@ -73,6 +74,58 @@ jobs:
             }
           }
           Write-Host 'Native client lifecycle harness syntax passed.'
+
+  winget:
+    if: github.event_name == 'workflow_dispatch'
+    needs: harness
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Validate candidate identity
+        shell: pwsh
+        env:
+          RELEASE_REPO: ${{ inputs.release_repo }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          VERSION: ${{ inputs.version }}
+          PORTABLE_SHA256: ${{ inputs.portable_sha256 }}
+        run: |
+          if ($env:RELEASE_REPO -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'release_repo must be owner/name.' }
+          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'release_tag must be vX.Y.Z.' }
+          if ($env:VERSION -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') { throw 'version must be X.Y.Z.' }
+          if ($env:RELEASE_TAG.Substring(1) -ne $env:VERSION) { throw 'release_tag and version disagree.' }
+          if ($env:PORTABLE_SHA256 -notmatch '^[0-9a-fA-F]{64}$') { throw 'portable_sha256 is malformed.' }
+
+      - name: Prove WinGet portable lifecycle
+        shell: pwsh
+        env:
+          RELEASE_REPO: ${{ inputs.release_repo }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          VERSION: ${{ inputs.version }}
+          PORTABLE_SHA256: ${{ inputs.portable_sha256 }}
+        run: |
+          $url = "https://github.com/$env:RELEASE_REPO/releases/download/$env:RELEASE_TAG/WinInspectPortable-$env:RELEASE_TAG.zip"
+          ./scripts/Test-WinGetPortableLifecycle.ps1 `
+            -PortableUrl $url `
+            -PortableSha256 $env:PORTABLE_SHA256 `
+            -PackageIdentifier 'SemperSupra.WinInspect' `
+            -PackageVersion $env:VERSION `
+            -Publisher 'Mark E. DeYoung' `
+            -PackageName 'WinInspect' `
+            -License 'PolyForm-Noncommercial-1.0.0' `
+            -Description 'Window inspection and automation tool for Windows and Wine.' `
+            -EvidencePath '${{ github.workspace }}\wininspect-winget-lifecycle.json'
+
+      - name: Upload WinGet lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: wininspect-${{ inputs.release_tag }}-winget-lifecycle
+          path: wininspect-winget-lifecycle.json
+          if-no-files-found: warn
+          retention-days: 30
 
   scoop:
     if: github.event_name == 'workflow_dispatch'

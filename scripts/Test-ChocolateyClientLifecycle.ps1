@@ -30,7 +30,13 @@ function Invoke-Choco {
     Write-Host "BEGIN $Operation"
     Write-Host "choco $($Arguments -join ' ')"
     & choco.exe @Arguments
-    if ($LASTEXITCODE -ne 0) { throw "$Operation failed with exit code $LASTEXITCODE." }
+    if ($LASTEXITCODE -ne 0) {
+        if (Test-Path 'C:\ProgramData\chocolatey\logs\chocolatey.log') {
+            Write-Host "--- Last 100 lines of chocolatey.log ---"
+            Get-Content 'C:\ProgramData\chocolatey\logs\chocolatey.log' -Tail 100 | Out-Host
+        }
+        throw "$Operation failed with exit code $LASTEXITCODE."
+    }
     Write-Host "END $Operation"
 }
 
@@ -105,10 +111,13 @@ try {
     packageName    = '$PackageId'
     fileType       = 'exe'
     url            = '$InstallerUrl'
+    url64bit       = '$InstallerUrl'
     checksum       = '$($InstallerSha256.ToLowerInvariant())'
     checksumType   = 'sha256'
+    checksum64     = '$($InstallerSha256.ToLowerInvariant())'
+    checksumType64 = 'sha256'
     silentArgs     = '/S'
-    validExitCodes = @(0)
+    validExitCodes = @(0, 3010)
 }
 Install-ChocolateyPackage @packageArgs
 "@
@@ -129,13 +138,13 @@ if (Test-Path -LiteralPath `$uninstaller -PathType Leaf) {
     if (-not $nupkg) { throw 'Chocolatey pack did not create the expected nupkg.' }
     $nupkgHash = (Get-FileHash -LiteralPath $nupkg.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
 
-    Invoke-Choco -Operation 'choco-install-local-feed' -Arguments @('install', $PackageId, '--version', $PackageVersion, '--source', $feed, '--yes', '--no-progress', '--limit-output')
+    Invoke-Choco -Operation 'choco-install-local-feed' -Arguments @('install', $PackageId, '--version', $PackageVersion, '--source', $feed, '--yes', '--no-progress')
     Assert-Installed
 
-    Invoke-Choco -Operation 'choco-repeat-install' -Arguments @('install', $PackageId, '--version', $PackageVersion, '--source', $feed, '--yes', '--no-progress', '--limit-output', '--force')
+    Invoke-Choco -Operation 'choco-repeat-install' -Arguments @('install', $PackageId, '--version', $PackageVersion, '--source', $feed, '--yes', '--no-progress', '--force')
     Assert-Installed
 
-    Invoke-Choco -Operation 'choco-uninstall' -Arguments @('uninstall', $PackageId, '--yes', '--no-progress', '--limit-output')
+    Invoke-Choco -Operation 'choco-uninstall' -Arguments @('uninstall', $PackageId, '--yes', '--no-progress')
     $cleanupMs = Wait-Uninstalled
 
     $localList = & choco.exe list --local-only --exact $PackageId --limit-output
