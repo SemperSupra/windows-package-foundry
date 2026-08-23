@@ -6,7 +6,8 @@ on:
       - '.github/workflows/winspect-native-client-readiness.yml'
       - 'scripts/Test-ScoopClientLifecycle.ps1'
       - 'scripts/Test-ChocolateyClientLifecycle.ps1'
-      - 'docs/client-interface-redteam.md'
+      - 'docs/native-client-readiness.md'
+      - 'docs/zero-budget-public-execution.md'
   push:
     branches:
       - main
@@ -14,62 +15,158 @@ on:
       - '.github/workflows/winspect-native-client-readiness.yml'
       - 'scripts/Test-ScoopClientLifecycle.ps1'
       - 'scripts/Test-ChocolateyClientLifecycle.ps1'
-      - 'docs/client-interface-redteam.md'
+      - 'docs/native-client-readiness.md'
+      - 'docs/zero-budget-public-execution.md'
   workflow_dispatch:
+    inputs:
+      release_repo:
+        description: 'Public WinInspect release repository (owner/name)'
+        required: true
+        default: 'SemperSupra/WinInspect'
+        type: string
+      release_tag:
+        description: 'Immutable release tag, for example v0.4.3'
+        required: true
+        type: string
+      version:
+        description: 'Package version without leading v, for example 0.4.3'
+        required: true
+        type: string
+      portable_sha256:
+        description: 'SHA-256 of WinInspectPortable-<tag>.zip'
+        required: true
+        type: string
+      installer_sha256:
+        description: 'SHA-256 of WinInspect-Installer-<tag>.exe'
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 jobs:
+  harness:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Parse lifecycle harnesses
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($path in @(
+            'scripts/Test-ScoopClientLifecycle.ps1',
+            'scripts/Test-ChocolateyClientLifecycle.ps1'
+          )) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path -LiteralPath $path),
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | Format-List | Out-String | Write-Host
+              throw "PowerShell parse errors in $path"
+            }
+          }
+          Write-Host 'Native client lifecycle harness syntax passed.'
+
   scoop:
+    if: github.event_name == 'workflow_dispatch'
+    needs: harness
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
-      - name: Prove exact WinInspect v0.4.2 Scoop lifecycle
+      - name: Validate candidate identity
         shell: pwsh
+        env:
+          RELEASE_REPO: ${{ inputs.release_repo }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          VERSION: ${{ inputs.version }}
+          PORTABLE_SHA256: ${{ inputs.portable_sha256 }}
         run: |
+          if ($env:RELEASE_REPO -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'release_repo must be owner/name.' }
+          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'release_tag must be vX.Y.Z.' }
+          if ($env:VERSION -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') { throw 'version must be X.Y.Z.' }
+          if ($env:RELEASE_TAG.Substring(1) -ne $env:VERSION) { throw 'release_tag and version disagree.' }
+          if ($env:PORTABLE_SHA256 -notmatch '^[0-9a-fA-F]{64}$') { throw 'portable_sha256 is malformed.' }
+
+      - name: Prove Scoop lifecycle
+        shell: pwsh
+        env:
+          RELEASE_REPO: ${{ inputs.release_repo }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          VERSION: ${{ inputs.version }}
+          PORTABLE_SHA256: ${{ inputs.portable_sha256 }}
+        run: |
+          $url = "https://github.com/$env:RELEASE_REPO/releases/download/$env:RELEASE_TAG/WinInspectPortable-$env:RELEASE_TAG.zip"
           ./scripts/Test-ScoopClientLifecycle.ps1 `
-            -PortableUrl 'https://github.com/SemperSupra/WinInspect/releases/download/v0.4.2/WinInspectPortable-v0.4.2.zip' `
-            -PortableSha256 '34c6019b1ac59f284f5d88e6864e88de71043e36e5c61c0f78d052cd14790e0a' `
+            -PortableUrl $url `
+            -PortableSha256 $env:PORTABLE_SHA256 `
             -PackageId 'wininspect' `
-            -PackageVersion '0.4.2' `
+            -PackageVersion $env:VERSION `
             -Bin @('App/WinInspect/winspect.exe','App/WinInspect/winspectd.exe','App/WinInspect/winspect-gui.exe') `
-            -EvidencePath '${{ github.workspace }}\wininspect-v0.4.2-scoop-lifecycle.json'
+            -EvidencePath '${{ github.workspace }}\wininspect-scoop-lifecycle.json'
 
       - name: Upload Scoop lifecycle evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: wininspect-v0.4.2-scoop-lifecycle
-          path: wininspect-v0.4.2-scoop-lifecycle.json
+          name: wininspect-${{ inputs.release_tag }}-scoop-lifecycle
+          path: wininspect-scoop-lifecycle.json
           if-no-files-found: warn
           retention-days: 30
 
   chocolatey:
+    if: github.event_name == 'workflow_dispatch'
+    needs: harness
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
-      - name: Prove exact WinInspect v0.4.2 Chocolatey local-feed lifecycle
+      - name: Validate candidate identity
         shell: pwsh
+        env:
+          RELEASE_REPO: ${{ inputs.release_repo }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          VERSION: ${{ inputs.version }}
+          INSTALLER_SHA256: ${{ inputs.installer_sha256 }}
         run: |
+          if ($env:RELEASE_REPO -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'release_repo must be owner/name.' }
+          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'release_tag must be vX.Y.Z.' }
+          if ($env:VERSION -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') { throw 'version must be X.Y.Z.' }
+          if ($env:RELEASE_TAG.Substring(1) -ne $env:VERSION) { throw 'release_tag and version disagree.' }
+          if ($env:INSTALLER_SHA256 -notmatch '^[0-9a-fA-F]{64}$') { throw 'installer_sha256 is malformed.' }
+
+      - name: Prove Chocolatey local-feed lifecycle
+        shell: pwsh
+        env:
+          RELEASE_REPO: ${{ inputs.release_repo }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          VERSION: ${{ inputs.version }}
+          INSTALLER_SHA256: ${{ inputs.installer_sha256 }}
+        run: |
+          $url = "https://github.com/$env:RELEASE_REPO/releases/download/$env:RELEASE_TAG/WinInspect-Installer-$env:RELEASE_TAG.exe"
           ./scripts/Test-ChocolateyClientLifecycle.ps1 `
-            -InstallerUrl 'https://github.com/SemperSupra/WinInspect/releases/download/v0.4.2/WinInspect-Installer-v0.4.2.exe' `
-            -InstallerSha256 '77d05af906737bfd259c65901636e9e8cd0ea659d0f48c069189d7492e606809' `
+            -InstallerUrl $url `
+            -InstallerSha256 $env:INSTALLER_SHA256 `
             -PackageId 'wininspect' `
-            -PackageVersion '0.4.2' `
-            -EvidencePath '${{ github.workspace }}\wininspect-v0.4.2-chocolatey-lifecycle.json'
+            -PackageVersion $env:VERSION `
+            -EvidencePath '${{ github.workspace }}\wininspect-chocolatey-lifecycle.json'
 
       - name: Upload Chocolatey lifecycle evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: wininspect-v0.4.2-chocolatey-lifecycle
-          path: wininspect-v0.4.2-chocolatey-lifecycle.json
+          name: wininspect-${{ inputs.release_tag }}-chocolatey-lifecycle
+          path: wininspect-chocolatey-lifecycle.json
           if-no-files-found: warn
           retention-days: 30
