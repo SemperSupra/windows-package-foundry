@@ -30,11 +30,16 @@ A client is ready for private promotion consideration only after a public hosted
 
 - deterministic `.nuspec` and scripts produce a local `.nupkg`;
 - the package references the exact immutable NSIS URL and SHA-256;
-- install from an isolated local feed;
+- generated package metadata points to the candidate release/version rather than historical `v0.4.2`;
+- Chocolatey invokes the NSIS installer with the explicit ownership handoff `/MANAGED-BY=chocolatey` in addition to `/S`;
+- install from an isolated local feed succeeds through that authorized package-manager path;
 - expected user-scope WinInspect state appears with no machine-scope registration;
-- repeat/force install succeeds;
+- while Chocolatey owns the installed package, a direct bare silent NSIS `/S` invocation is rejected with a nonzero exit and leaves the managed install intact;
+- repeat/force Chocolatey install succeeds through the explicit ownership handoff;
 - Chocolatey uninstall invokes deterministic product cleanup;
 - application and Chocolatey package state are removed.
+
+The ownership handoff is deliberate: **silent mode is not authorization**. A package manager that owns the installation must identify itself explicitly; an ordinary unattended installer must not silently cross another client's ownership boundary.
 
 ## Candidate invocation
 
