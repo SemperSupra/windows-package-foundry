@@ -79,6 +79,7 @@ foreach ($pair in @(
     @($model.package.artifacts.portable.sha256, 'package.artifacts.portable.sha256'),
     @($model.package.clients.scoop.id, 'package.clients.scoop.id'),
     @($model.package.clients.winget.id, 'package.clients.winget.id'),
+    @($model.package.clients.winget.artifact, 'package.clients.winget.artifact'),
     @($model.package.clients.chocolatey.id, 'package.clients.chocolatey.id'),
     @($model.package.clients.chocolatey.packageSourceUrl, 'package.clients.chocolatey.packageSourceUrl'),
     @($model.package.clients.chocolatey.tags, 'package.clients.chocolatey.tags')
@@ -108,6 +109,10 @@ $version = [string]$model.package.release.version
 $wingetId = [string]$model.package.clients.winget.id
 $scoopId = [string]$model.package.clients.scoop.id
 $chocoId = [string]$model.package.clients.chocolatey.id
+$wingetArtifact = [string]$model.package.clients.winget.artifact
+if ($wingetArtifact -notin @('installer', 'portable')) {
+    throw "package.clients.winget.artifact must be 'installer' or 'portable'."
+}
 
 $paths = @(
     'catalog/v1/packages',
@@ -162,28 +167,50 @@ $scoop = [ordered]@{
 Set-Content -LiteralPath (Join-Path $OutputRoot "bucket/$scoopId.json") -Value ($scoop | ConvertTo-Json -Depth 10) -Encoding utf8NoBOM
 
 $manifestVersion = if ($model.package.clients.winget.manifestVersion) { [string]$model.package.clients.winget.manifestVersion } else { '1.10.0' }
-$winget = @(
-    "# yaml-language-server: `$schema=https://aka.ms/winget-manifest.singleton.$manifestVersion.schema.json",
-    '',
-    "PackageIdentifier: $(Quote-Yaml ([string]$wingetId))",
-    "PackageVersion: $(Quote-Yaml $version)",
-    "PackageLocale: 'en-US'",
-    "Publisher: $(Quote-Yaml ([string]$model.package.identity.publisher))",
-    "PackageName: $(Quote-Yaml ([string]$model.package.identity.name))",
-    "License: $(Quote-Yaml ([string]$model.package.identity.license))",
-    "ShortDescription: $(Quote-Yaml ([string]$model.package.identity.description))",
-    'Installers:',
-    "- Architecture: $(Quote-Yaml ([string]$model.package.artifacts.installer.architecture))",
-    "  InstallerType: $(Quote-Yaml ([string]$model.package.artifacts.installer.installerType))",
-    "  InstallerUrl: $(Quote-Yaml ([string]$model.package.artifacts.installer.url))",
-    "  InstallerSha256: $([string]$model.package.artifacts.installer.sha256)",
-    "  Scope: $(Quote-Yaml ([string]$model.package.artifacts.installer.scope))",
-    '  InstallerSwitches:',
-    "    Silent: $(Quote-Yaml ([string]$model.package.artifacts.installer.silentArgs))",
-    "    SilentWithProgress: $(Quote-Yaml ([string]$model.package.artifacts.installer.silentArgs))",
-    "ManifestType: 'singleton'",
-    "ManifestVersion: $manifestVersion"
-) -join "`n"
+$wingetLines = [System.Collections.Generic.List[string]]::new()
+$wingetLines.Add("# yaml-language-server: `$schema=https://aka.ms/winget-manifest.singleton.$manifestVersion.schema.json")
+$wingetLines.Add('')
+$wingetLines.Add("PackageIdentifier: $(Quote-Yaml ([string]$wingetId))")
+$wingetLines.Add("PackageVersion: $(Quote-Yaml $version)")
+$wingetLines.Add("PackageLocale: 'en-US'")
+$wingetLines.Add("Publisher: $(Quote-Yaml ([string]$model.package.identity.publisher))")
+$wingetLines.Add("PackageName: $(Quote-Yaml ([string]$model.package.identity.name))")
+$wingetLines.Add("License: $(Quote-Yaml ([string]$model.package.identity.license))")
+$wingetLines.Add("ShortDescription: $(Quote-Yaml ([string]$model.package.identity.description))")
+
+if ($wingetArtifact -eq 'portable') {
+    $nested = @($model.package.clients.winget.nestedInstallerFiles)
+    if ($nested.Count -eq 0) {
+        throw 'Portable WinGet projection requires clients.winget.nestedInstallerFiles.'
+    }
+    $wingetLines.Add("InstallerType: 'zip'")
+    $wingetLines.Add("NestedInstallerType: 'portable'")
+    $wingetLines.Add('NestedInstallerFiles:')
+    foreach ($entry in $nested) {
+        Require-Value -Value $entry.relativeFilePath -Name 'package.clients.winget.nestedInstallerFiles.relativeFilePath'
+        Require-Value -Value $entry.portableCommandAlias -Name 'package.clients.winget.nestedInstallerFiles.portableCommandAlias'
+        $wingetLines.Add("- RelativeFilePath: $(Quote-Yaml ([string]$entry.relativeFilePath))")
+        $wingetLines.Add("  PortableCommandAlias: $(Quote-Yaml ([string]$entry.portableCommandAlias))")
+    }
+    $wingetLines.Add('Installers:')
+    $wingetLines.Add("- Architecture: $(Quote-Yaml ([string]$model.package.artifacts.installer.architecture))")
+    $wingetLines.Add("  InstallerUrl: $(Quote-Yaml ([string]$model.package.artifacts.portable.url))")
+    $wingetLines.Add("  InstallerSha256: $([string]$model.package.artifacts.portable.sha256)")
+    $wingetLines.Add("  Scope: 'user'")
+} else {
+    $wingetLines.Add('Installers:')
+    $wingetLines.Add("- Architecture: $(Quote-Yaml ([string]$model.package.artifacts.installer.architecture))")
+    $wingetLines.Add("  InstallerType: $(Quote-Yaml ([string]$model.package.artifacts.installer.installerType))")
+    $wingetLines.Add("  InstallerUrl: $(Quote-Yaml ([string]$model.package.artifacts.installer.url))")
+    $wingetLines.Add("  InstallerSha256: $([string]$model.package.artifacts.installer.sha256)")
+    $wingetLines.Add("  Scope: $(Quote-Yaml ([string]$model.package.artifacts.installer.scope))")
+    $wingetLines.Add('  InstallerSwitches:')
+    $wingetLines.Add("    Silent: $(Quote-Yaml ([string]$model.package.artifacts.installer.silentArgs))")
+    $wingetLines.Add("    SilentWithProgress: $(Quote-Yaml ([string]$model.package.artifacts.installer.silentArgs))")
+}
+$wingetLines.Add("ManifestType: 'singleton'")
+$wingetLines.Add("ManifestVersion: $manifestVersion")
+$winget = $wingetLines -join "`n"
 Set-Content -LiteralPath (Join-Path $OutputRoot "distribution/winget/$wingetId/$version/$wingetId.yaml") -Value ($winget + "`n") -Encoding utf8NoBOM
 
 $iconUrl = if ($model.package.clients.chocolatey.iconUrl) { [string]$model.package.clients.chocolatey.iconUrl } else { '' }
@@ -231,6 +258,7 @@ $name = Escape-Html ([string]$model.package.identity.name)
 $description = Escape-Html ([string]$model.package.identity.description)
 $sourceSha = Escape-Html ([string]$model.package.release.sourceSha)
 $installerSha = Escape-Html ([string]$model.package.artifacts.installer.sha256)
+$portableSha = Escape-Html ([string]$model.package.artifacts.portable.sha256)
 $releaseUrl = Escape-Html ([string]$model.package.release.releaseUrl)
 $scoopCommand = "scoop install semper-supra/$scoopId"
 $wingetCommand = "winget install --manifest <foundry>/distribution/winget/$wingetId/$version"
@@ -249,6 +277,7 @@ $html = @"
 <dt>Promotion</dt><dd>approved</dd>
 <dt>Source SHA</dt><dd><code>$sourceSha</code></dd>
 <dt>Installer SHA-256</dt><dd><code>$installerSha</code></dd>
+<dt>Portable SHA-256</dt><dd><code>$portableSha</code></dd>
 </dl>
 <h2>Install</h2>
 <h3>Scoop</h3><pre><code>$(Escape-Html $scoopCommand)</code></pre>
