@@ -16,6 +16,20 @@ This record captures the adversarial review of the public Foundry client UX/DX d
 8. **Fail closed on lifecycle/promotion state.** Installable client projections may not be generated from a package whose private-approved public projection does not explicitly report lifecycle and promotion approval.
 9. **Adapters, if later justified, are translators only.** They consume sanitized public projection data, hold no authoritative package state, and have no credential or network path into private Foundry state.
 10. **Prefer a compatible manifest floor over unnecessary client upgrades.** The WinGet MVP uses the frozen singleton manifest schema `1.10.0`; it contains every field the Foundry currently needs and is accepted by a broader installed-client range than newer schema revisions. Raise the floor only when a required field or behavior justifies doing so.
+11. **Select the best approved artifact per client instead of forcing one installer through every package manager.** Common identity, version, provenance, and lifecycle state stay singular; client sections may select different already-approved release artifacts when the package manager has a better native representation. For WinInspect v0.4.2, Scoop and WinGet use the existing portable ZIP, while direct install and Chocolatey use the NSIS installer.
+12. **Do not encode unsupported package-manager metadata for symmetry.** WinGet portable installers do not accept `Scope`; the portable manifest omits it rather than pretending the archive has NSIS-style scope metadata.
+
+## Evidence-driven WinInspect MVP choice
+
+The first WinInspect lifecycle attempts established three distinct facts that must not be conflated:
+
+- the exact `v0.4.2` release installer and portable ZIP both have immutable release hashes and approved public provenance;
+- direct NSIS lifecycle testing on a clean hosted Windows runner proves package -> silent install -> repeat silent install -> silent uninstall -> converged cleanup succeeds;
+- NSIS consumed through WinGet can stall after WinGet reports `Starting package install...`, even though the same NSIS package works directly. That integration path remains diagnostic rather than the supported MVP WinGet surface.
+
+The existing `WinInspectPortable-v0.4.2.zip` contains the three release executables under `App/WinInspect/` before any PortableApps launcher is added. WinGet therefore models the archive natively as `InstallerType: zip` with `NestedInstallerType: portable` and three command aliases (`wininspect`, `wininspectd`, `wininspect-gui`). Scoop consumes the same portable archive. This reuses an already-attested release artifact and avoids manufacturing a new release solely to work around a package-manager/NSIS integration seam.
+
+The hosted-Windows proof must still pass the complete WinGet portable lifecycle, including exact archive hash verification, manifest validation, install, alias creation, repeat install, uninstall, and alias cleanup, before private Foundry may approve promotion.
 
 ## MVP target
 
@@ -28,12 +42,12 @@ public package model
         |
         +-- generated static HTML
         +-- generated versioned JSON
-        +-- generated Scoop bucket
-        +-- generated WinGet local manifest
-        `-- generated Chocolatey package source
+        +-- generated Scoop bucket ---------> approved portable artifact
+        +-- generated WinGet local manifest -> approved portable artifact
+        `-- generated Chocolatey source -----> approved NSIS artifact
 ```
 
-For WinInspect, first prove the exact released installer through a clean hosted-Windows WinGet local-manifest install/uninstall lifecycle. Only after that evidence is accepted by the private Foundry may the real installable public projection be published.
+Product release workflows should prove their own packaged artifacts before publication. Foundry then proves the package-manager-specific consumption path against the immutable released artifact. The two gates are complementary: product lifecycle testing catches package defects before release; Foundry lifecycle testing catches client-integration defects before promotion.
 
 ## Deferred
 
@@ -41,6 +55,7 @@ For WinInspect, first prove the exact released installer through a clean hosted-
 - Chocolatey/NuGet HTTP feed adapter;
 - database-backed catalog;
 - JavaScript application framework;
+- NSIS-through-WinGet as a required MVP path while the portable path is cleaner and independently verifiable;
 - external community-registry publication as a release dependency.
 
 Reconsider a deferred item only when actual use demonstrates enough friction or scale to justify its operational and compatibility cost.
