@@ -1,0 +1,103 @@
+project:
+  name: AgentKVM2USB
+  version: 0.2.0
+  description: Cross-platform Python SDK and GUI for Epiphan KVM2USB 3.0.
+  longDescription: Cross-platform Python SDK and GUI for Epiphan KVM2USB 3.0 using standard HID and UVC interfaces.
+  authors:
+    - Mark E. DeYoung
+  license: NOASSERTION
+  copyright: 2026 Mark E. DeYoung
+  stereotype: DESKTOP
+  vendor: SemperSupra
+  tags:
+    - windows
+    - python
+    - kvm
+  links:
+    homepage: https://github.com/SemperSupra/AgentKVM2USB
+    documentation: https://github.com/SemperSupra/AgentKVM2USB/blob/main/PACKAGING.md
+    license: https://github.com/SemperSupra/AgentKVM2USB
+    bugTracker: https://github.com/SemperSupra/AgentKVM2USB/issues
+    vcsBrowser: https://github.com/SemperSupra/AgentKVM2USB
+
+release:
+  github:
+    owner: SemperSupra
+    name: AgentKVM2USB
+    tagName: v0.2.0
+    skipTag: true
+    skipRelease: true
+    uploadAssets: NEVER
+
+packagers:
+  scoop:
+    active: NEVER
+  winget:
+    active: NEVER
+  chocolatey:
+    active: NEVER
+
+distributions:
+  agentkvm2usb-portable:
+    type: BINARY
+    stereotype: DESKTOP
+    tags:
+      - windows
+      - python
+      - kvm
+      - portable
+    executable:
+      name: Run-AgentKVM2USB
+      windowsExtension: cmd
+    artifacts:
+      - path: inputs/AgentKVM2USB-v0.2.0-windows-portable.zip
+        platform: windows-x86_64
+    scoop:
+      active: ALWAYS
+      skipPublishing: true
+      downloadUrl: https://github.com/SemperSupra/AgentKVM2USB/releases/download/v0.2.0/{{artifactFile}}
+      packageName: agentkvm2usb
+      repository:
+        active: NEVER
+      extraProperties:
+        skipLicenseFile: true
+    winget:
+      active: ALWAYS
+      skipPublishing: true
+      downloadUrl: https://github.com/SemperSupra/AgentKVM2USB/releases/download/v0.2.0/{{artifactFile}}
+      repository:
+        active: NEVER
+      defaultLocale: en-US
+      author: Mark E. DeYoung
+      moniker: agentkvm2usb
+      minimumOsVersion: 10.0.0.0
+      package:
+        identifier: SemperSupra.AgentKVM2USB
+        name: AgentKVM2USB
+        version: 0.2.0
+        url: https://github.com/SemperSupra/AgentKVM2USB
+      publisher:
+        name: Mark E. DeYoung
+        url: https://github.com/SemperSupra
+        supportUrl: https://github.com/SemperSupra/AgentKVM2USB/issues
+      installer:
+        type: ZIP
+        scope: USER
+        modes:
+          - SILENT
+        upgradeBehavior: INSTALL
+        command: AgentKVM2USB
+      extraProperties:
+        skipLicenseFile: true
+    chocolatey:
+      active: ALWAYS
+      skipPublishing: true
+      downloadUrl: https://github.com/SemperSupra/AgentKVM2USB/releases/download/v0.2.0/{{artifactFile}}
+      packageName: agentkvm2usb
+      packageVersion: 0.2.0
+      remoteBuild: true
+      title: AgentKVM2USB
+      repository:
+        active: NEVER
+      extraProperties:
+        skipLicenseFile: true

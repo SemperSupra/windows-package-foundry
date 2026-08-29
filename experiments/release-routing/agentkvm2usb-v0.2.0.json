@@ -1,0 +1,26 @@
+{
+  "release": {
+    "product": "AgentKVM2USB",
+    "version": "0.2.0",
+    "source": "SemperSupra/AgentKVM2USB@v0.2.0"
+  },
+  "artifacts": [
+    {
+      "type": "portable-zip",
+      "url": "https://github.com/SemperSupra/AgentKVM2USB/releases/download/v0.2.0/AgentKVM2USB-v0.2.0-windows-portable.zip",
+      "sha256": "360ff91a7c4b76d90b5d115ceea379b4f8c8568e67c54c36f7c37a8ff413a3c1",
+      "entryPoints": ["Run-AgentKVM2USB.cmd"]
+    }
+  ],
+  "semantics": {
+    "runtimeDependencies": ["python3"],
+    "bootstrap": "Install-Dependencies.cmd",
+    "commands": [{"name": "AgentKVM2USB", "path": "Run-AgentKVM2USB.cmd"}],
+    "ownership": "extracted-tree"
+  },
+  "targets": [
+    {"venue": "scoop-local"},
+    {"venue": "winget-local"},
+    {"venue": "chocolatey-local"}
+  ]
+}

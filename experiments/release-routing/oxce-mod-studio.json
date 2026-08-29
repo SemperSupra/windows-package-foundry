@@ -1,0 +1,17 @@
+{
+  "release": {
+    "product": "oxce-mod-studio",
+    "version": "0.0.1-g3a3d4626",
+    "source": "SemperSupra/oxce-mod-studio@studio-exp-current"
+  },
+  "artifacts": [
+    {
+      "type": "vsix",
+      "url": "https://github.com/SemperSupra/oxce-mod-studio/releases/download/studio-exp-current/oxce-mod-studio-experimental-0.0.1-g3a3d4626.vsix",
+      "sha256": "2b4e0c2b285e37ab05bd09f3b905678da7c8826987a46785d133d759f78bd4ca"
+    }
+  ],
+  "targets": [
+    {"venue": "vscode"}
+  ]
+}
