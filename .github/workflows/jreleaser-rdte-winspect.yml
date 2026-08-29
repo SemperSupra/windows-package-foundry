@@ -1,0 +1,135 @@
+name: JReleaser RDTE - WinInspect
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/jreleaser-rdte-winspect.yml'
+      - 'experiments/jreleaser/winspect-v0.4.2/**'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/jreleaser-rdte-winspect.yml'
+      - 'experiments/jreleaser/winspect-v0.4.2/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Run bounded JReleaser experiment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          EXP='${{ github.workspace }}/experiments/jreleaser/winspect-v0.4.2'
+          WORK='${{ runner.temp }}/jreleaser-rdte'
+          JR_VERSION='1.25.0'
+          JR_SHA256='7c086a384e509ae30ad12ce2f10946601c0798e746d06a5538afc267e398644b'
+          PORTABLE_SHA256='34c6019b1ac59f284f5d88e6864e88de71043e36e5c61c0f78d052cd14790e0a'
+          INSTALLER_SHA256='77d05af906737bfd259c65901636e9e8cd0ea659d0f48c069189d7492e606809'
+
+          rm -rf "$WORK" "$EXP/inputs"
+          mkdir -p "$WORK/tool" "$WORK/run1" "$WORK/run2" "$WORK/result" "$EXP/inputs"
+
+          java -version
+
+          curl --fail --location --silent --show-error \
+            --output "$WORK/jreleaser.zip" \
+            "https://github.com/jreleaser/jreleaser/releases/download/v${JR_VERSION}/jreleaser-${JR_VERSION}.zip"
+          echo "${JR_SHA256}  $WORK/jreleaser.zip" | sha256sum --check --strict
+          unzip -q "$WORK/jreleaser.zip" -d "$WORK/tool"
+          JR="$WORK/tool/jreleaser-${JR_VERSION}/bin/jreleaser"
+          chmod +x "$JR"
+          "$JR" --version | tee "$WORK/result/jreleaser-version.txt"
+
+          curl --fail --location --silent --show-error \
+            --output "$EXP/inputs/WinInspectPortable-v0.4.2.zip" \
+            'https://github.com/SemperSupra/WinInspect/releases/download/v0.4.2/WinInspectPortable-v0.4.2.zip'
+          curl --fail --location --silent --show-error \
+            --output "$EXP/inputs/WinInspect-Installer-v0.4.2.exe" \
+            'https://github.com/SemperSupra/WinInspect/releases/download/v0.4.2/WinInspect-Installer-v0.4.2.exe'
+          echo "${PORTABLE_SHA256}  $EXP/inputs/WinInspectPortable-v0.4.2.zip" | sha256sum --check --strict
+          echo "${INSTALLER_SHA256}  $EXP/inputs/WinInspect-Installer-v0.4.2.exe" | sha256sum --check --strict
+          sha256sum "$EXP"/inputs/* > "$WORK/result/input-sha256.txt"
+
+          run_jreleaser() {
+            local operation="$1"
+            local output="$2"
+            case "$operation" in
+              config|prepare|package) ;;
+              *) echo "Denied JReleaser operation: $operation" >&2; exit 70 ;;
+            esac
+            "$JR" "$operation" \
+              --config-file "$EXP/jreleaser.yml" \
+              --output-directory "$output" \
+              --strict \
+              --reproducible \
+              ${operation/package/--dry-run}
+          }
+
+          # The shell substitution above intentionally adds --dry-run only to package.
+          # config and prepare receive no remote-operation command and all packager
+          # repositories/publication paths are disabled in jreleaser.yml.
+          run_jreleaser config "$WORK/run1"
+          run_jreleaser prepare "$WORK/run1"
+          run_jreleaser package "$WORK/run1"
+
+          run_jreleaser config "$WORK/run2"
+          run_jreleaser prepare "$WORK/run2"
+          run_jreleaser package "$WORK/run2"
+
+          inventory() {
+            local root="$1"
+            local destination="$2"
+            (
+              cd "$root"
+              find jreleaser -type f \
+                \( -path '*/prepared/*' -o -path '*/package/*' \) \
+                -print0 | sort -z | xargs -0 sha256sum
+            ) > "$destination"
+          }
+
+          inventory "$WORK/run1" "$WORK/result/run1-package-sha256.txt"
+          inventory "$WORK/run2" "$WORK/result/run2-package-sha256.txt"
+
+          if diff -u "$WORK/result/run1-package-sha256.txt" "$WORK/result/run2-package-sha256.txt" > "$WORK/result/reproducibility.diff"; then
+            printf '%s\n' 'stable=true' > "$WORK/result/reproducibility.txt"
+          else
+            printf '%s\n' 'stable=false' > "$WORK/result/reproducibility.txt"
+          fi
+
+          cp -a "$WORK/run1/jreleaser" "$WORK/result/run1-jreleaser"
+          cp -a "$WORK/run2/jreleaser" "$WORK/result/run2-jreleaser"
+
+          {
+            echo 'status=rdte'
+            echo 'authority=non-authoritative'
+            echo 'promotion=not-promoted'
+            echo 'external-publication=not-invoked'
+            echo "jreleaser-version=${JR_VERSION}"
+            echo "jreleaser-sha256=${JR_SHA256}"
+          } > "$WORK/result/experiment-state.txt"
+
+          cat "$WORK/result/reproducibility.txt"
+          find "$WORK/result/run1-jreleaser" -type f -maxdepth 8 -print | sort
+
+          rm -rf "$EXP/inputs"
+
+      - name: Upload RDTE generation evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: jreleaser-rdte-winspect-v0.4.2
+          path: ${{ runner.temp }}/jreleaser-rdte/result
+          if-no-files-found: error
+          retention-days: 30
