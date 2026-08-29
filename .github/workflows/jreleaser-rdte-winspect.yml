@@ -28,6 +28,11 @@ jobs:
 
       - name: Run bounded JReleaser experiment
         shell: bash
+        env:
+          # JReleaser validates that a configured GitHub releaser has a nonblank
+          # token even with skipTag/skipRelease. This is deliberately NOT a
+          # credential; the experiment cannot authenticate with it.
+          JRELEASER_GITHUB_TOKEN: RDTE-NO-PUBLISH-NOT-A-CREDENTIAL
         run: |
           set -euo pipefail
 
@@ -122,6 +127,7 @@ jobs:
             echo 'authority=non-authoritative'
             echo 'promotion=not-promoted'
             echo 'external-publication=not-invoked'
+            echo 'release-provider-credential=non-secret-sentinel'
             echo 'fixture=v0.4.4'
             echo "jreleaser-version=${JR_VERSION}"
             echo "jreleaser-sha256=${JR_SHA256}"
