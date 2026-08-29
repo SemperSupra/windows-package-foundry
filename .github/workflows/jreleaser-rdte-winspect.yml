@@ -69,17 +69,22 @@ jobs:
               config|prepare|package) ;;
               *) echo "Denied JReleaser operation: $operation" >&2; exit 70 ;;
             esac
-            "$JR" "$operation" \
-              --config-file "$EXP/jreleaser.yml" \
-              --output-directory "$output" \
-              --strict \
-              --reproducible \
-              ${operation/package/--dry-run}
+            local args=(
+              "$operation"
+              --config-file "$EXP/jreleaser.yml"
+              --output-directory "$output"
+              --strict
+              --reproducible
+            )
+            if [[ "$operation" == 'package' ]]; then
+              args+=(--dry-run)
+            fi
+            "$JR" "${args[@]}"
           }
 
-          # The shell substitution above intentionally adds --dry-run only to package.
-          # config and prepare receive no remote-operation command and all packager
-          # repositories/publication paths are disabled in jreleaser.yml.
+          # Only config, prepare, and package are reachable through the whitelist.
+          # package additionally uses --dry-run. All configured packager repositories
+          # and publication paths are disabled in jreleaser.yml.
           run_jreleaser config "$WORK/run1"
           run_jreleaser prepare "$WORK/run1"
           run_jreleaser package "$WORK/run1"
@@ -121,7 +126,7 @@ jobs:
           } > "$WORK/result/experiment-state.txt"
 
           cat "$WORK/result/reproducibility.txt"
-          find "$WORK/result/run1-jreleaser" -type f -maxdepth 8 -print | sort
+          find "$WORK/result/run1-jreleaser" -maxdepth 8 -type f -print | sort
 
           rm -rf "$EXP/inputs"
 
