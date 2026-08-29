@@ -31,7 +31,12 @@ jobs:
           a=json.loads((p/'agentkvm2usb-plan.json').read_text()); o=json.loads((p/'oxce-plan.json').read_text())
           assert a['projectionBackend']=='jreleaser' and a['publicationAuthorized'] is False
           assert set(a['venues'])=={'scoop-local','winget-local','chocolatey-local'}
+          assert a['venues']['scoop-local']['eligible'] is True
+          assert a['venues']['chocolatey-local']['eligible'] is True
+          assert a['venues']['winget-local']['eligible'] is False
+          assert 'venue.winget.nested-portable-cmd-rejected-by-native-validator' in a['venues']['winget-local']['reasonCodes']
           assert o['projectionBackend'] is None and o['venues']['vscode']['adapter']=='venue-native'
+          assert o['venues']['vscode']['eligible'] is True
           assert 'venue.native-packaging-authoritative' in o['reasonCodes'] and o['publicationAuthorized'] is False
           PY
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -93,13 +98,26 @@ jobs:
           [xml](Get-Content $nuspec.FullName -Raw) | Out-Null
           $choco=Get-Command choco.exe -ErrorAction Stop; & $choco.Source pack $nuspec.FullName --output-directory $out --limit-output; if ($LASTEXITCODE -ne 0) { throw "choco pack failed: $LASTEXITCODE" }
           $winget=Get-Command winget.exe -ErrorAction SilentlyContinue
-          if ($winget) { $manifestRoot=Split-Path -Parent $version.FullName; & $winget.Source validate --manifest $manifestRoot --disable-interactivity; if ($LASTEXITCODE -ne 0) { throw "winget validate failed: $LASTEXITCODE" }; $wingetStatus='passed' } else { $wingetStatus='runner-unavailable' }
+          $wingetStatus='runner-unavailable'
+          if ($winget) {
+            $manifestRoot=Split-Path -Parent $version.FullName
+            $wingetOutput = (& $winget.Source validate --manifest $manifestRoot --disable-interactivity 2>&1 | Out-String)
+            $wingetExit=$LASTEXITCODE
+            $wingetOutput | Set-Content (Join-Path $out 'winget-validation.txt') -Encoding utf8NoBOM
+            if ($wingetExit -eq 0) {
+              throw 'WinGet unexpectedly accepted the known-ineligible .cmd nested portable entrypoint; capability evidence changed and requires review'
+            }
+            if ($wingetOutput -notmatch 'file type of the referenced file is not allowed' -or $wingetOutput -notmatch 'Run-AgentKVM2USB\.cmd') {
+              throw "WinGet failed for an unexpected reason: $wingetOutput"
+            }
+            $wingetStatus='ineligible-native-validator-rejects-cmd-entrypoint'
+          }
           $zip=Join-Path $out 'AgentKVM2USB.zip'; Invoke-WebRequest -UseBasicParsing 'https://github.com/SemperSupra/AgentKVM2USB/releases/download/v0.2.0/AgentKVM2USB-v0.2.0-windows-portable.zip' -OutFile $zip
           if ((Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne '360ff91a7c4b76d90b5d115ceea379b4f8c8568e67c54c36f7c37a8ff413a3c1') { throw 'fixture hash mismatch' }
           $install=Join-Path $out 'install'; Expand-Archive $zip $install; $run=Get-ChildItem $install -Recurse -Filter 'Run-AgentKVM2USB.cmd' | Select-Object -First 1; $bootstrap=Get-ChildItem $install -Recurse -Filter 'Install-Dependencies.cmd' | Select-Object -First 1; if (-not $run -or -not $bootstrap) { throw 'command/bootstrap missing' }
           $install2=Join-Path $out 'install-repeat'; Expand-Archive $zip $install2; if (-not (Get-ChildItem $install2 -Recurse -Filter 'Run-AgentKVM2USB.cmd' | Select-Object -First 1)) { throw 'repeat materialization failed' }
           Remove-Item $install -Recurse -Force; if (Test-Path $install) { throw 'owned-tree uninstall residue' }
-          $e=[ordered]@{schemaVersion=1;status='rdte';authority='non-authoritative';genericSemanticAdapter='portable-zip-normalizer';productSpecificProceduralGeneratorLines=0;scoopSemanticNormalization='passed';wingetValidate=$wingetStatus;chocolateyPack='passed';fixtureHash='passed';commandExposure='passed';dependencyBootstrapPresence='passed';dependencyBootstrapExecution='not-run-network-heavy-and-hardware-dependent';repeatMaterialization='passed';upgradeSimulation='same-version-repeat-only';uninstallOwnedTree='passed';hardwareValidation='out-of-scope';externalPublication='not-invoked'}
+          $e=[ordered]@{schemaVersion=1;status='rdte';authority='non-authoritative';genericSemanticAdapter='portable-zip-normalizer';productSpecificProceduralGeneratorLines=0;scoopSemanticNormalization='passed';wingetEligibility='ineligible';wingetReasonCode='venue.winget.nested-portable-cmd-rejected-by-native-validator';wingetValidate=$wingetStatus;chocolateyPack='passed';fixtureHash='passed';commandExposure='passed';dependencyBootstrapPresence='passed';dependencyBootstrapExecution='not-run-network-heavy-and-hardware-dependent';repeatMaterialization='passed';upgradeSimulation='same-version-repeat-only';uninstallOwnedTree='passed';hardwareValidation='out-of-scope';externalPublication='not-invoked'}
           $e | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $out 'lifecycle.json') -Encoding utf8NoBOM
           Copy-Item $scoop.FullName (Join-Path $out 'agentkvm2usb.scoop.json'); Copy-Item (Split-Path -Parent $version.FullName) (Join-Path $out 'winget') -Recurse; Copy-Item (Split-Path -Parent $nuspec.FullName) (Join-Path $out 'chocolatey') -Recurse
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -116,7 +134,7 @@ jobs:
         shell: pwsh
         run: |
           Set-StrictMode -Version Latest; $ErrorActionPreference='Stop'; $plan=Get-Content (Join-Path $env:RUNNER_TEMP 'plans\oxce-plan.json') -Raw | ConvertFrom-Json
-          if ($null -ne $plan.projectionBackend -or $plan.venues.vscode.adapter -ne 'venue-native') { throw 'VSIX routing incorrect' }
+          if ($null -ne $plan.projectionBackend -or $plan.venues.vscode.adapter -ne 'venue-native' -or -not $plan.venues.vscode.eligible) { throw 'VSIX routing incorrect' }
           $out=Join-Path $env:RUNNER_TEMP 'oxce-vsix'; New-Item -ItemType Directory -Force $out | Out-Null; $vsix=Join-Path $out 'oxce-mod-studio.vsix'
           Invoke-WebRequest -UseBasicParsing 'https://github.com/SemperSupra/oxce-mod-studio/releases/download/studio-exp-current/oxce-mod-studio-experimental-0.0.1-g3a3d4626.vsix' -OutFile $vsix
           if ((Get-FileHash $vsix -Algorithm SHA256).Hash.ToLowerInvariant() -ne '2b4e0c2b285e37ab05bd09f3b905678da7c8826987a46785d133d759f78bd4ca') { throw 'VSIX hash mismatch' }
