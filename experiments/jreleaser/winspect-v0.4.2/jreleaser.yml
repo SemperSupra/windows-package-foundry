@@ -1,0 +1,112 @@
+project:
+  name: WinInspect
+  version: 0.4.2
+  description: Window inspection and automation for Windows and Wine.
+  longDescription: Window inspection and automation tool for Windows and Wine.
+  authors:
+    - Mark E. DeYoung
+  license: PolyForm-Noncommercial-1.0.0
+  stereotype: DESKTOP
+  vendor: SemperSupra
+  links:
+    homepage: https://github.com/SemperSupra/WinInspect
+    documentation: https://github.com/SemperSupra/WinInspect/tree/0e3c3d588ca320c287589cd469e50c88370584a8
+    license: https://github.com/SemperSupra/WinInspect/blob/0e3c3d588ca320c287589cd469e50c88370584a8/LICENSE
+    bugTracker: https://github.com/SemperSupra/WinInspect/issues
+    vcsBrowser: https://github.com/SemperSupra/WinInspect
+
+release:
+  github:
+    enabled: false
+    owner: SemperSupra
+    name: WinInspect
+    tagName: v0.4.2
+
+packagers:
+  scoop:
+    active: NEVER
+  winget:
+    active: NEVER
+  chocolatey:
+    active: NEVER
+
+distributions:
+  wininspect-portable:
+    type: BINARY
+    stereotype: CLI
+    executable:
+      name: wininspect
+      windowsExtension: exe
+    artifacts:
+      - path: inputs/WinInspectPortable-v0.4.2.zip
+        platform: windows-x86_64
+    scoop:
+      active: ALWAYS
+      skipPublishing: true
+      downloadUrl: https://github.com/SemperSupra/WinInspect/releases/download/v0.4.2/{{artifactFile}}
+      packageName: wininspect
+      repository:
+        active: NEVER
+      extraProperties:
+        skipLicenseFile: true
+    winget:
+      active: ALWAYS
+      skipPublishing: true
+      downloadUrl: https://github.com/SemperSupra/WinInspect/releases/download/v0.4.2/{{artifactFile}}
+      repository:
+        active: NEVER
+      defaultLocale: en-US
+      author: Mark E. DeYoung
+      moniker: wininspect
+      minimumOsVersion: 10.0.0.0
+      tags:
+        - windows
+        - automation
+        - inspection
+      package:
+        identifier: SemperSupra.WinInspect
+        name: WinInspect
+        version: 0.4.2
+        url: https://github.com/SemperSupra/WinInspect
+      publisher:
+        name: Mark E. DeYoung
+        url: https://github.com/SemperSupra
+        supportUrl: https://github.com/SemperSupra/WinInspect/issues
+      installer:
+        type: ZIP
+        scope: USER
+        modes:
+          - SILENT
+        upgradeBehavior: INSTALL
+        command: wininspect
+      extraProperties:
+        skipLicenseFile: true
+    chocolatey:
+      active: NEVER
+
+  wininspect-installer:
+    type: NATIVE_PACKAGE
+    stereotype: DESKTOP
+    executable:
+      name: wininspect
+      windowsExtension: exe
+    artifacts:
+      - path: inputs/WinInspect-Installer-v0.4.2.exe
+        platform: windows-x86_64
+    chocolatey:
+      active: ALWAYS
+      skipPublishing: true
+      downloadUrl: https://github.com/SemperSupra/WinInspect/releases/download/v0.4.2/{{artifactFile}}
+      packageName: wininspect
+      packageVersion: 0.4.2
+      remoteBuild: true
+      title: WinInspect
+      repository:
+        active: NEVER
+      extraProperties:
+        skipLicenseFile: true
+        foundryManagedInstallerArgs: /S /MANAGED-BY=chocolatey
+    scoop:
+      active: NEVER
+    winget:
+      active: NEVER
