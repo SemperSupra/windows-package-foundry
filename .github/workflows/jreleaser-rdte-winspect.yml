@@ -75,6 +75,7 @@ jobs:
               --output-directory "$output"
               --strict
               --reproducible
+              --git-root-search
             )
             if [[ "$operation" == 'package' ]]; then
               args+=(--dry-run)
