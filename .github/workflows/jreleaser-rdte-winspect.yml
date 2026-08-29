@@ -146,3 +146,88 @@ jobs:
           path: ${{ runner.temp }}/jreleaser-rdte/result
           if-no-files-found: error
           retention-days: 30
+
+  validate-windows:
+    needs: generate
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download generated RDTE outputs
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: jreleaser-rdte-winspect-v0.4.4
+          path: ${{ runner.temp }}\jreleaser-rdte-input
+
+      - name: Validate and pack locally
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $inputRoot = Join-Path $env:RUNNER_TEMP 'jreleaser-rdte-input\run1-jreleaser\package'
+          $outputRoot = Join-Path $env:RUNNER_TEMP 'jreleaser-rdte-native'
+          New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
+
+          $scoopManifest = Join-Path $inputRoot 'wininspect-portable\scoop\bucket\wininspect.json'
+          $wingetDir = Join-Path $inputRoot 'wininspect-portable\winget\manifests\s\SemperSupra\WinInspect\0.4.4'
+          $chocoRoot = Join-Path $inputRoot 'wininspect-installer\chocolatey\wininspect'
+          $nuspec = Join-Path $chocoRoot 'wininspect.nuspec'
+
+          Get-Content -LiteralPath $scoopManifest -Raw | ConvertFrom-Json | Out-Null
+          [xml](Get-Content -LiteralPath $nuspec -Raw) | Out-Null
+
+          $choco = Get-Command choco.exe -ErrorAction Stop
+          & $choco.Source pack $nuspec --output-directory $outputRoot --limit-output
+          if ($LASTEXITCODE -ne 0) {
+            throw "choco pack failed with exit code $LASTEXITCODE"
+          }
+
+          $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
+          if (-not $winget) {
+            Install-PackageProvider -Name NuGet -Force | Out-Null
+            Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+            Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery -Scope AllUsers | Out-Null
+            Import-Module Microsoft.WinGet.Client
+            Repair-WinGetPackageManager -AllUsers
+            $winget = Get-Command winget.exe -ErrorAction Stop
+          }
+
+          & $winget.Source validate --manifest $wingetDir --disable-interactivity
+          if ($LASTEXITCODE -ne 0) {
+            throw "winget validate failed with exit code $LASTEXITCODE"
+          }
+
+          $nupkg = Get-ChildItem -LiteralPath $outputRoot -Filter '*.nupkg' -File | Select-Object -First 1
+          if (-not $nupkg) {
+            throw 'choco pack did not create a .nupkg'
+          }
+
+          $evidence = [ordered]@{
+            schemaVersion = 1
+            status = 'rdte'
+            authority = 'non-authoritative'
+            promotion = 'not-promoted'
+            externalPublication = 'not-invoked'
+            scoopJsonParse = 'passed'
+            wingetValidate = 'passed'
+            chocolateyNuspecXmlParse = 'passed'
+            chocolateyPack = 'passed'
+            semanticLifecycle = 'not-run'
+            nupkg = [ordered]@{
+              name = $nupkg.Name
+              sha256 = (Get-FileHash -LiteralPath $nupkg.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            }
+          }
+          $evidence | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $outputRoot 'native-validation.json') -Encoding utf8NoBOM
+          Copy-Item -LiteralPath $scoopManifest -Destination (Join-Path $outputRoot 'wininspect.scoop.json')
+          Copy-Item -LiteralPath $wingetDir -Destination (Join-Path $outputRoot 'winget') -Recurse
+          Copy-Item -LiteralPath $chocoRoot -Destination (Join-Path $outputRoot 'chocolatey') -Recurse
+
+      - name: Upload native-validation artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: jreleaser-rdte-winspect-v0.4.4-native
+          path: ${{ runner.temp }}\jreleaser-rdte-native
+          if-no-files-found: error
+          retention-days: 30
