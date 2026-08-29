@@ -71,10 +71,6 @@ distributions:
       author: Mark E. DeYoung
       moniker: wininspect
       minimumOsVersion: 10.0.0.0
-      tags:
-        - windows
-        - automation
-        - inspection
       package:
         identifier: SemperSupra.WinInspect
         name: WinInspect
