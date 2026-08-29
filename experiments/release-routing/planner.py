@@ -20,6 +20,14 @@ VENUES = {
     "vscode": ("venue-native", "vsix-manifest"),
 }
 
+def venue_eligibility(model, artifact_type, venue):
+    """Return deterministic RDTE eligibility without product-name special cases."""
+    if artifact_type == "portable-zip" and venue == "winget-local":
+        entry_points = model["artifacts"][0].get("entryPoints", [])
+        if entry_points and Path(entry_points[0]).suffix.lower() == ".cmd":
+            return False, ["venue.winget.nested-portable-cmd-rejected-by-native-validator"]
+    return True, []
+
 def plan(model):
     artifact_type = model["artifacts"][0]["type"]
     if artifact_type not in ROUTES:
@@ -35,7 +43,13 @@ def plan(model):
             raise SystemExit("vsix may only route to the venue-native vscode adapter in this RDTE")
         if artifact_type == "portable-zip" and venue == "vscode":
             raise SystemExit("portable-zip may not route to vscode")
-        venues[venue] = {"adapter": adapter, "nativeValidator": validator}
+        eligible, reasons = venue_eligibility(model, artifact_type, venue)
+        venues[venue] = {
+            "adapter": adapter,
+            "nativeValidator": validator,
+            "eligible": eligible,
+            "reasonCodes": reasons,
+        }
     return {
         "schemaVersion": 1,
         "status": "rdte",
