@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "status": "rdte",
+  "authority": "non-authoritative",
+  "product": "AgentKVM2USB",
+  "version": "0.2.0",
+  "projectionBackend": "jreleaser",
+  "jreleaserVersion": "1.25.0",
+  "fixtureSha256": "360ff91a7c4b76d90b5d115ceea379b4f8c8568e67c54c36f7c37a8ff413a3c1",
+  "sameRunReproducibility": "passed",
+  "crossDayReproducibility": "not-proven",
+  "productSpecificProceduralGeneratorLines": 0,
+  "genericSemanticAdapter": "portable-zip-normalizer",
+  "scoop": {
+    "eligible": true,
+    "semanticNormalization": "passed"
+  },
+  "chocolatey": {
+    "eligible": true,
+    "nativePack": "passed"
+  },
+  "wingetLocal": {
+    "eligible": false,
+    "reasonCode": "venue.winget.nested-portable-cmd-rejected-by-native-validator",
+    "evidenceRuns": [33240256320, 33240357659],
+    "observedNativeError": "The file type of the referenced file is not allowed for RelativeFilePath Run-AgentKVM2USB.cmd"
+  },
+  "lifecycle": {
+    "fixtureHash": "passed",
+    "commandPresence": "passed",
+    "dependencyBootstrapPresence": "passed",
+    "dependencyBootstrapExecution": "not-run-network-heavy-and-hardware-dependent",
+    "repeatMaterialization": "passed-by-script-design; final receipt job interrupted by expected native WinGet probe before persisted upload",
+    "upgrade": "same-version-repeat-only",
+    "ownedTreeUninstall": "bounded-check-designed; final receipt job interrupted by expected native WinGet probe before persisted upload",
+    "hardwareValidation": "out-of-scope"
+  },
+  "externalPublication": "not-invoked",
+  "promotionStateChanged": false,
+  "conclusion": "pass-with-qualification: generic projection works without product-specific generator code, but venue eligibility must be modeled before execution; current .cmd-based release is not WinGet-local eligible"
+}
