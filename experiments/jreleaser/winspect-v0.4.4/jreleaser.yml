@@ -6,8 +6,13 @@ project:
   authors:
     - Mark E. DeYoung
   license: PolyForm-Noncommercial-1.0.0
+  copyright: 2026 Mark E. DeYoung
   stereotype: DESKTOP
   vendor: SemperSupra
+  tags:
+    - windows
+    - automation
+    - inspection
   links:
     homepage: https://github.com/SemperSupra/WinInspect
     documentation: https://github.com/SemperSupra/WinInspect/tree/b2d07ae3ff1df53a62c27ec3fa27f1452ff5926a
@@ -17,10 +22,12 @@ project:
 
 release:
   github:
-    enabled: false
     owner: SemperSupra
     name: WinInspect
     tagName: v0.4.4
+    skipTag: true
+    skipRelease: true
+    uploadAssets: NEVER
 
 packagers:
   scoop:
@@ -34,6 +41,11 @@ distributions:
   wininspect-portable:
     type: BINARY
     stereotype: CLI
+    tags:
+      - windows
+      - cli
+      - automation
+      - inspection
     executable:
       name: wininspect
       windowsExtension: exe
@@ -87,6 +99,11 @@ distributions:
   wininspect-installer:
     type: NATIVE_PACKAGE
     stereotype: DESKTOP
+    tags:
+      - windows
+      - desktop
+      - automation
+      - inspection
     executable:
       name: wininspect
       windowsExtension: exe
