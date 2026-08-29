@@ -1,0 +1,233 @@
+name: JReleaser RDTE - WinInspect
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/jreleaser-rdte-winspect.yml'
+      - 'experiments/jreleaser/winspect-v0.4.4/**'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/jreleaser-rdte-winspect.yml'
+      - 'experiments/jreleaser/winspect-v0.4.4/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Run bounded JReleaser experiment
+        shell: bash
+        env:
+          # JReleaser validates that a configured GitHub releaser has a nonblank
+          # token even with skipTag/skipRelease. This is deliberately NOT a
+          # credential; the experiment cannot authenticate with it.
+          JRELEASER_GITHUB_TOKEN: RDTE-NO-PUBLISH-NOT-A-CREDENTIAL
+        run: |
+          set -euo pipefail
+
+          EXP='${{ github.workspace }}/experiments/jreleaser/winspect-v0.4.4'
+          WORK='${{ runner.temp }}/jreleaser-rdte'
+          JR_VERSION='1.25.0'
+          JR_SHA256='7c086a384e509ae30ad12ce2f10946601c0798e746d06a5538afc267e398644b'
+          PORTABLE_SHA256='6ac0a65f774ffe69672f1c459254931ebfddb1e52c9fbec14b5db1348ccaad04'
+          INSTALLER_SHA256='601d5f54083ea8922328b8b35d9094b8fb2eb8e8d243dd0883de90fb9919acba'
+
+          rm -rf "$WORK" "$EXP/inputs"
+          mkdir -p "$WORK/tool" "$WORK/run1" "$WORK/run2" "$WORK/result" "$EXP/inputs"
+
+          java -version
+
+          curl --fail --location --silent --show-error \
+            --output "$WORK/jreleaser.zip" \
+            "https://github.com/jreleaser/jreleaser/releases/download/v${JR_VERSION}/jreleaser-${JR_VERSION}.zip"
+          echo "${JR_SHA256}  $WORK/jreleaser.zip" | sha256sum --check --strict
+          unzip -q "$WORK/jreleaser.zip" -d "$WORK/tool"
+          JR="$WORK/tool/jreleaser-${JR_VERSION}/bin/jreleaser"
+          chmod +x "$JR"
+          "$JR" --version | tee "$WORK/result/jreleaser-version.txt"
+
+          curl --fail --location --silent --show-error \
+            --output "$EXP/inputs/WinInspectPortable-v0.4.4.zip" \
+            'https://github.com/SemperSupra/WinInspect/releases/download/v0.4.4/WinInspectPortable-v0.4.4.zip'
+          curl --fail --location --silent --show-error \
+            --output "$EXP/inputs/WinInspect-Installer-v0.4.4.exe" \
+            'https://github.com/SemperSupra/WinInspect/releases/download/v0.4.4/WinInspect-Installer-v0.4.4.exe'
+          echo "${PORTABLE_SHA256}  $EXP/inputs/WinInspectPortable-v0.4.4.zip" | sha256sum --check --strict
+          echo "${INSTALLER_SHA256}  $EXP/inputs/WinInspect-Installer-v0.4.4.exe" | sha256sum --check --strict
+          sha256sum "$EXP"/inputs/* > "$WORK/result/input-sha256.txt"
+
+          run_jreleaser() {
+            local operation="$1"
+            local output="$2"
+            case "$operation" in
+              config|prepare|package) ;;
+              *) echo "Denied JReleaser operation: $operation" >&2; exit 70 ;;
+            esac
+            local args=(
+              "$operation"
+              --config-file "$EXP/jreleaser.yml"
+              --output-directory "$output"
+              --strict
+              --reproducible
+              --git-root-search
+            )
+            if [[ "$operation" == 'package' ]]; then
+              args+=(--dry-run)
+            fi
+            "$JR" "${args[@]}"
+          }
+
+          # Only config, prepare, and package are reachable through the whitelist.
+          # package additionally uses --dry-run. All configured packager repositories
+          # and publication paths are disabled in jreleaser.yml.
+          run_jreleaser config "$WORK/run1"
+          run_jreleaser prepare "$WORK/run1"
+          run_jreleaser package "$WORK/run1"
+
+          run_jreleaser config "$WORK/run2"
+          run_jreleaser prepare "$WORK/run2"
+          run_jreleaser package "$WORK/run2"
+
+          inventory() {
+            local root="$1"
+            local destination="$2"
+            (
+              cd "$root"
+              find jreleaser -type f \
+                \( -path '*/prepared/*' -o -path '*/package/*' \) \
+                -print0 | sort -z | xargs -0 sha256sum
+            ) > "$destination"
+          }
+
+          inventory "$WORK/run1" "$WORK/result/run1-package-sha256.txt"
+          inventory "$WORK/run2" "$WORK/result/run2-package-sha256.txt"
+
+          if diff -u "$WORK/result/run1-package-sha256.txt" "$WORK/result/run2-package-sha256.txt" > "$WORK/result/reproducibility.diff"; then
+            printf '%s\n' 'stable=true' > "$WORK/result/reproducibility.txt"
+          else
+            printf '%s\n' 'stable=false' > "$WORK/result/reproducibility.txt"
+          fi
+
+          cp -a "$WORK/run1/jreleaser" "$WORK/result/run1-jreleaser"
+          cp -a "$WORK/run2/jreleaser" "$WORK/result/run2-jreleaser"
+
+          {
+            echo 'status=rdte'
+            echo 'authority=non-authoritative'
+            echo 'promotion=not-promoted'
+            echo 'external-publication=not-invoked'
+            echo 'release-provider-credential=non-secret-sentinel'
+            echo 'fixture=v0.4.4'
+            echo "jreleaser-version=${JR_VERSION}"
+            echo "jreleaser-sha256=${JR_SHA256}"
+          } > "$WORK/result/experiment-state.txt"
+
+          cat "$WORK/result/reproducibility.txt"
+          find "$WORK/result/run1-jreleaser" -maxdepth 8 -type f -print | sort
+
+          rm -rf "$EXP/inputs"
+
+      - name: Upload RDTE generation evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: jreleaser-rdte-winspect-v0.4.4
+          path: ${{ runner.temp }}/jreleaser-rdte/result
+          if-no-files-found: error
+          retention-days: 30
+
+  validate-windows:
+    needs: generate
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download generated RDTE outputs
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: jreleaser-rdte-winspect-v0.4.4
+          path: ${{ runner.temp }}\jreleaser-rdte-input
+
+      - name: Validate and pack locally
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $inputRoot = Join-Path $env:RUNNER_TEMP 'jreleaser-rdte-input\run1-jreleaser\package'
+          $outputRoot = Join-Path $env:RUNNER_TEMP 'jreleaser-rdte-native'
+          New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
+
+          $scoopManifest = Join-Path $inputRoot 'wininspect-portable\scoop\bucket\wininspect.json'
+          $wingetDir = Join-Path $inputRoot 'wininspect-portable\winget\manifests\s\SemperSupra\WinInspect\0.4.4'
+          $chocoRoot = Join-Path $inputRoot 'wininspect-installer\chocolatey\wininspect'
+          $nuspec = Join-Path $chocoRoot 'wininspect.nuspec'
+
+          Get-Content -LiteralPath $scoopManifest -Raw | ConvertFrom-Json | Out-Null
+          [xml](Get-Content -LiteralPath $nuspec -Raw) | Out-Null
+
+          $choco = Get-Command choco.exe -ErrorAction Stop
+          & $choco.Source pack $nuspec --output-directory $outputRoot --limit-output
+          if ($LASTEXITCODE -ne 0) {
+            throw "choco pack failed with exit code $LASTEXITCODE"
+          }
+
+          $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
+          if (-not $winget) {
+            Install-PackageProvider -Name NuGet -Force | Out-Null
+            Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+            Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery -Scope AllUsers | Out-Null
+            Import-Module Microsoft.WinGet.Client
+            Repair-WinGetPackageManager -AllUsers
+            $winget = Get-Command winget.exe -ErrorAction Stop
+          }
+
+          & $winget.Source validate --manifest $wingetDir --disable-interactivity
+          if ($LASTEXITCODE -ne 0) {
+            throw "winget validate failed with exit code $LASTEXITCODE"
+          }
+
+          $nupkg = Get-ChildItem -LiteralPath $outputRoot -Filter '*.nupkg' -File | Select-Object -First 1
+          if (-not $nupkg) {
+            throw 'choco pack did not create a .nupkg'
+          }
+
+          $evidence = [ordered]@{
+            schemaVersion = 1
+            status = 'rdte'
+            authority = 'non-authoritative'
+            promotion = 'not-promoted'
+            externalPublication = 'not-invoked'
+            scoopJsonParse = 'passed'
+            wingetValidate = 'passed'
+            chocolateyNuspecXmlParse = 'passed'
+            chocolateyPack = 'passed'
+            semanticLifecycle = 'not-run'
+            nupkg = [ordered]@{
+              name = $nupkg.Name
+              sha256 = (Get-FileHash -LiteralPath $nupkg.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            }
+          }
+          $evidence | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $outputRoot 'native-validation.json') -Encoding utf8NoBOM
+          Copy-Item -LiteralPath $scoopManifest -Destination (Join-Path $outputRoot 'wininspect.scoop.json')
+          Copy-Item -LiteralPath $wingetDir -Destination (Join-Path $outputRoot 'winget') -Recurse
+          Copy-Item -LiteralPath $chocoRoot -Destination (Join-Path $outputRoot 'chocolatey') -Recurse
+
+      - name: Upload native-validation artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: jreleaser-rdte-winspect-v0.4.4-native
+          path: ${{ runner.temp }}\jreleaser-rdte-native
+          if-no-files-found: error
+          retention-days: 30

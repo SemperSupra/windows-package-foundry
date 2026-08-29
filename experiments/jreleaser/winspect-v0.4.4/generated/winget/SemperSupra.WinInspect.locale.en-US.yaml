@@ -1,0 +1,26 @@
+# Generated with JReleaser 1.25.0
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.9.0.schema.json
+
+PackageIdentifier: SemperSupra.WinInspect
+PackageVersion: 0.4.4
+PackageLocale: en-US
+Publisher: Mark E. DeYoung
+PublisherUrl: https://github.com/SemperSupra
+PublisherSupportUrl: https://github.com/SemperSupra/WinInspect/issues
+Author: Mark E. DeYoung
+PackageName: WinInspect
+PackageUrl: https://github.com/SemperSupra/WinInspect
+License: PolyForm-Noncommercial-1.0.0
+LicenseUrl: https://github.com/SemperSupra/WinInspect/blob/b2d07ae3ff1df53a62c27ec3fa27f1452ff5926a/LICENSE
+Copyright: 2026 Mark E. DeYoung
+ShortDescription: Window inspection and automation for Windows and Wine.
+Description: |
+  Window inspection and automation tool for Windows and Wine.
+Moniker: wininspect
+Tags:
+  - windows
+  - automation
+  - inspection
+ReleaseNotesUrl: https://github.com/SemperSupra/WinInspect/releases/tag/v0.4.4
+ManifestType: defaultLocale
+ManifestVersion: 1.9.0
