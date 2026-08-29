@@ -26,13 +26,14 @@
     "observedNativeError": "The file type of the referenced file is not allowed for RelativeFilePath Run-AgentKVM2USB.cmd"
   },
   "lifecycle": {
+    "evidenceRun": 33240606268,
     "fixtureHash": "passed",
     "commandPresence": "passed",
     "dependencyBootstrapPresence": "passed",
     "dependencyBootstrapExecution": "not-run-network-heavy-and-hardware-dependent",
-    "repeatMaterialization": "passed-by-script-design; final receipt job interrupted by expected native WinGet probe before persisted upload",
+    "repeatMaterialization": "passed",
     "upgrade": "same-version-repeat-only",
-    "ownedTreeUninstall": "bounded-check-designed; final receipt job interrupted by expected native WinGet probe before persisted upload",
+    "ownedTreeUninstall": "passed",
     "hardwareValidation": "out-of-scope"
   },
   "externalPublication": "not-invoked",
