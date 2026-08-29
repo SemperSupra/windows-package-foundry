@@ -1,0 +1,21 @@
+{
+    "version": "0.4.4",
+    "description": "Window inspection and automation for Windows and Wine.",
+    "homepage": "https://github.com/SemperSupra/WinInspect",
+    "license": "PolyForm-Noncommercial-1.0.0",
+    "url": "https://github.com/SemperSupra/WinInspect/releases/download/v0.4.4/WinInspectPortable-v0.4.4.zip",
+    "hash": "sha256:6ac0a65f774ffe69672f1c459254931ebfddb1e52c9fbec14b5db1348ccaad04",
+    "extract_dir": "App",
+    "env_add_path": "bin",
+    "checkver": {
+        "url": "https://github.com/SemperSupra/WinInspect/releases/latest",
+        "re": "v([\\d.]+).zip"
+    },
+    "autoupdate": {
+        "url": "https://github.com/SemperSupra/WinInspect/releases/download/v$version/WinInspectPortable-v$version.zip",
+        "extract_dir": "WinInspectPortable-v$version",
+        "hash": {
+            "url": "$url.sha256"
+        }
+    }
+}

@@ -1,0 +1,17 @@
+# Generated with JReleaser 1.25.0
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.9.0.schema.json
+
+PackageIdentifier: SemperSupra.WinInspect
+PackageVersion: 0.4.4
+ReleaseDate: 2026-08-29
+Installers:
+  - Architecture: neutral
+    InstallerUrl: https://github.com/SemperSupra/WinInspect/releases/download/v0.4.4/WinInspectPortable-v0.4.4.zip
+    InstallerSha256: 6ac0a65f774ffe69672f1c459254931ebfddb1e52c9fbec14b5db1348ccaad04
+    InstallerType: zip
+    NestedInstallerType: portable
+    NestedInstallerFiles:
+      - RelativeFilePath: App\bin\wininspect.exe
+        PortableCommandAlias: wininspect
+ManifestType: installer
+ManifestVersion: 1.9.0
