@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "status": "rdte",
+  "authority": "non-authoritative",
+  "product": "oxce-mod-studio",
+  "artifactClass": "vsix",
+  "projectionBackend": null,
+  "adapter": "venue-native",
+  "reasonCodes": [
+    "artifact.vsix",
+    "projection.generic-backend-not-required",
+    "venue.native-packaging-authoritative"
+  ],
+  "fixtureSha256": "2b4e0c2b285e37ab05bd09f3b905678da7c8826987a46785d133d759f78bd4ca",
+  "fixtureHash": "passed",
+  "manifestParse": "passed",
+  "name": "oxce-mod-studio",
+  "version": "0.0.1",
+  "vscodeEngine": "^1.96.0",
+  "vscodeCliInstall": "runner-unavailable",
+  "activation": "not-run-in-foundry",
+  "productSpecificProceduralCoreLines": 0,
+  "marketplacePublication": "not-invoked",
+  "promotionStateChanged": false,
+  "conclusion": "pass: deterministic routing bypassed JReleaser and preserved venue-native authority without leaking VSIX-specific procedural behavior into Foundry core"
+}
