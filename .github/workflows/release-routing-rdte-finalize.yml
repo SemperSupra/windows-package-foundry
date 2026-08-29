@@ -1,0 +1,60 @@
+name: Release routing RDTE finalize
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/release-routing-rdte-finalize.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  agentkvm2usb-portable-lifecycle:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Validate immutable portable lifecycle without ineligible venues
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference='Stop'
+          $out=Join-Path $env:RUNNER_TEMP 'agentkvm-lifecycle'
+          New-Item -ItemType Directory -Force $out | Out-Null
+          $zip=Join-Path $out 'AgentKVM2USB.zip'
+          Invoke-WebRequest -UseBasicParsing 'https://github.com/SemperSupra/AgentKVM2USB/releases/download/v0.2.0/AgentKVM2USB-v0.2.0-windows-portable.zip' -OutFile $zip
+          $hash=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne '360ff91a7c4b76d90b5d115ceea379b4f8c8568e67c54c36f7c37a8ff413a3c1') { throw 'fixture hash mismatch' }
+          $install=Join-Path $out 'install'
+          Expand-Archive $zip $install
+          $run=Get-ChildItem $install -Recurse -Filter 'Run-AgentKVM2USB.cmd' | Select-Object -First 1
+          $bootstrap=Get-ChildItem $install -Recurse -Filter 'Install-Dependencies.cmd' | Select-Object -First 1
+          if (-not $run -or -not $bootstrap) { throw 'command/bootstrap missing' }
+          $install2=Join-Path $out 'install-repeat'
+          Expand-Archive $zip $install2
+          if (-not (Get-ChildItem $install2 -Recurse -Filter 'Run-AgentKVM2USB.cmd' | Select-Object -First 1)) { throw 'repeat materialization failed' }
+          Remove-Item $install -Recurse -Force
+          if (Test-Path $install) { throw 'owned-tree uninstall residue' }
+          $receipt=[ordered]@{
+            schemaVersion=1
+            status='rdte'
+            authority='non-authoritative'
+            fixtureHash='passed'
+            commandPresence='passed'
+            dependencyBootstrapPresence='passed'
+            dependencyBootstrapExecution='not-run-network-heavy-and-hardware-dependent'
+            repeatMaterialization='passed'
+            upgrade='same-version-repeat-only'
+            ownedTreeUninstall='passed'
+            hardwareValidation='out-of-scope'
+            wingetLocal='skipped-ineligible-per-native-validator-evidence'
+            externalPublication='not-invoked'
+          }
+          $receipt | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $out 'lifecycle.json') -Encoding utf8NoBOM
+          $global:LASTEXITCODE=0
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: agentkvm2usb-portable-lifecycle-rdte
+          path: ${{ runner.temp }}\agentkvm-lifecycle\lifecycle.json
+          if-no-files-found: error
+          retention-days: 30
