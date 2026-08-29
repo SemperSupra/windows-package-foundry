@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "status": "rdte",
+  "authority": "non-authoritative",
+  "promotion": "not-promoted",
+  "externalPublication": "not-invoked",
+  "scoopJsonParse": "passed",
+  "wingetValidate": "passed",
+  "chocolateyNuspecXmlParse": "passed",
+  "chocolateyPack": "passed",
+  "semanticLifecycle": "not-run",
+  "nupkg": {
+    "name": "wininspect.0.4.4.nupkg",
+    "sha256": "b96877218eea9ea4687272ba82202572e5baf91f030d6137a37da18e47d28c13"
+  }
+}
