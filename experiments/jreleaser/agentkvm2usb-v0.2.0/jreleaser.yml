@@ -16,6 +16,7 @@ project:
   links:
     homepage: https://github.com/SemperSupra/AgentKVM2USB
     documentation: https://github.com/SemperSupra/AgentKVM2USB/blob/main/PACKAGING.md
+    license: https://github.com/SemperSupra/AgentKVM2USB
     bugTracker: https://github.com/SemperSupra/AgentKVM2USB/issues
     vcsBrowser: https://github.com/SemperSupra/AgentKVM2USB
 
