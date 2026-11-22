@@ -1,0 +1,28 @@
+name: R44 Windows Display Topology and Redaction
+on:
+  pull_request:
+    paths:
+      - 'scripts/Get-RedactedDisplayTopology.ps1'
+      - 'tests/Test-RedactedDisplayTopology.ps1'
+      - '.github/workflows/r44-display-topology.yml'
+permissions:
+  contents: read
+jobs:
+  monitor-projection:
+    runs-on: windows-2025
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Anonymous synthetic multi-monitor and privacy negative cases
+        shell: powershell
+        run: .\tests\Test-RedactedDisplayTopology.ps1
+      - name: Read-only hosted Windows display topology observation
+        shell: powershell
+        run: |
+          $raw = & .\scripts\Get-RedactedDisplayTopology.ps1 -Live
+          $p = $raw | ConvertFrom-Json
+          if ($p.source -ne 'windows-forms-screen-observed') { throw 'Unknown display source' }
+          if ($p.physicalMonitorsAttested -or $p.humanApprovalAuthenticated) { throw 'False authority' }
+          $raw
