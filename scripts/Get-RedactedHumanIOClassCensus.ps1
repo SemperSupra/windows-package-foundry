@@ -25,7 +25,7 @@ $counts = [ordered]@{}
 foreach ($name in $classes) { $counts[$name] = 0 }
 $source = 'synthetic'
 if ($Live.IsPresent) {
-    if (-not $IsWindows -and $PSVersionTable.PSVersion.Major -ge 6) {
+    if ($PSVersionTable.PSVersion.Major -ge 6 -and -not $IsWindows) {
         throw 'Live Windows PnP census requires Windows'
     }
     $cmd = Get-Command Get-PnpDevice -ErrorAction SilentlyContinue
