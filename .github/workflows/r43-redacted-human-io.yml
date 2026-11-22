@@ -1,0 +1,28 @@
+name: R43 Windows PS5.1 Redacted Human IO Class Census
+on:
+  pull_request:
+    paths:
+      - 'scripts/Get-RedactedHumanIOClassCensus.ps1'
+      - 'tests/Test-RedactedHumanIOClassCensus.ps1'
+      - '.github/workflows/r43-redacted-human-io.yml'
+permissions:
+  contents: read
+jobs:
+  windows-class-census:
+    runs-on: windows-2025
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Synthetic identity redaction and approval negative controls
+        shell: powershell
+        run: .\tests\Test-RedactedHumanIOClassCensus.ps1
+      - name: Read-only Windows public-runner PnP-class observation
+        shell: powershell
+        run: |
+          $data = & .\scripts\Get-RedactedHumanIOClassCensus.ps1 -Live | ConvertFrom-Json
+          if ($data.source -ne 'windows-pnpclass-present-only') { throw 'Unexpected source' }
+          if ($data.physicalSensorExercised -or $data.toolAuthorityGranted) { throw 'False HID authority' }
+          # No raw device identities or PNP IDs are printed in logs.
+          $data | ConvertTo-Json -Depth 6 -Compress
