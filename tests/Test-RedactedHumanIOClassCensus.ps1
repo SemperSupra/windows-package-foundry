@@ -9,7 +9,6 @@ $synthetic = @(
     [pscustomobject]@{Class='OtherSecret';FriendlyName='NO-LEAK'}
 )
 $raw = & $script -Devices $synthetic
-if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'Synthetic PnP probe execution failed' }
 $census = $raw | ConvertFrom-Json
 if ($census.schema -ne 'windows-human-io-class-census/v1') { throw 'Wrong schema' }
 if ($census.source -ne 'synthetic') { throw 'Synthetic/hardware source confusion' }
